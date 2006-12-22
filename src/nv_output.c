@@ -93,13 +93,71 @@ nv_output_mode_set(xf86OutputPtr output, DisplayModePtr mode,
 static xf86OutputStatus
 nv_output_detect(xf86OutputPtr output)
 {
+  
   return XF86OutputStatusUnknown;
 }
 
 static DisplayModePtr
 nv_output_get_modes(xf86OutputPtr output)
 {
-  return NULL;
+  ScrnInfoPtr	pScrn = output->scrn;
+  NVOutputPrivatePtr nv_output = output->driver_private;
+  xf86MonPtr ddc_mon;
+  DisplayModePtr ddc_modes, mode;
+  int i;
+
+
+  ddc_mon = xf86DoEDID_DDC2(pScrn->scrnIndex, nv_output->pDDCBus);
+  if (ddc_mon == NULL) {
+#ifdef RANDR_12_INTERFACE
+    nv_ddc_set_edid_property(output, NULL, 0);
+#endif
+    return NULL;
+  }
+  
+  if (output->MonInfo != NULL)
+    xfree(output->MonInfo);
+  output->MonInfo = ddc_mon;
+
+#ifdef RANDR_12_INTERFACE
+  if (output->MonInfo->ver.version == 1) {
+    nv_ddc_set_edid_property(output, ddc_mon->rawData, 128);
+    } else if (output->MonInfo->ver.version == 2) {
+	nv_ddc_set_edid_property(output, ddc_mon->rawData, 256);
+    } else {
+	nv_ddc_set_edid_property(output, NULL, 0);
+    }
+#endif
+
+  /* Debug info for now, at least */
+  xf86DrvMsg(pScrn->scrnIndex, X_INFO, "EDID for output %s\n", output->name);
+  xf86PrintEDID(output->MonInfo);
+  
+  ddc_modes = xf86DDCGetModes(pScrn->scrnIndex, ddc_mon);
+  
+  /* Strip out any modes that can't be supported on this output. */
+  for (mode = ddc_modes; mode != NULL; mode = mode->next) {
+    int status = (*output->funcs->mode_valid)(output, mode);
+    
+    if (status != MODE_OK)
+      mode->status = status;
+  }
+  i830xf86PruneInvalidModes(pScrn, &ddc_modes, TRUE);
+  
+  /* Pull out a phyiscal size from a detailed timing if available. */
+  for (i = 0; i < 4; i++) {
+    if (ddc_mon->det_mon[i].type == DT &&
+	ddc_mon->det_mon[i].section.d_timings.h_size != 0 &&
+	ddc_mon->det_mon[i].section.d_timings.v_size != 0)
+      {
+	output->mm_width = ddc_mon->det_mon[i].section.d_timings.h_size;
+	output->mm_height = ddc_mon->det_mon[i].section.d_timings.v_size;
+	break;
+      }
+  }
+  
+  return ddc_modes;
+
 }
 
 static void
@@ -133,11 +191,12 @@ void NvSetupOutputs(ScrnInfoPtr pScrn)
   int i;
   xf86OutputPtr	    output;
   NVOutputPrivatePtr    nv_output;
-  char name[10];
+  char *name[2] =  { "VGA0", "VGA1" };
+  int   crtc_mask = (1<<0) | (1<<1);
 
   for (i = 0; i<NV_MAX_OUTPUT; i++) {
-    sprintf(name, "VGA%d\n", i);
-    output = xf86OutputCreate (pScrn, &nv_output_funcs, name);
+
+    output = xf86OutputCreate (pScrn, &nv_output_funcs, name[i]);
     if (!output)
 	return;
     nv_output = xnfcalloc (sizeof (NVOutputPrivateRec), 1);
@@ -149,7 +208,8 @@ void NvSetupOutputs(ScrnInfoPtr pScrn)
     
     output->driver_private = nv_output;
 
-    NV_I2CInit(pScrn, &nv_output->pDDCBus, i ? 0x36 : 0x3e, name);
+    NV_I2CInit(pScrn, &nv_output->pDDCBus, i ? 0x36 : 0x3e, name[i]);
     
+    output->possible_crtcs = crtc_mask;
   }
 }
