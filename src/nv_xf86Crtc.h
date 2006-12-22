@@ -307,26 +307,39 @@ struct _xf86Output {
 #endif
 };
 
-/* XXX yes, static allocation is a kludge */
-#define XF86_MAX_CRTC	4
-#define XF86_MAX_OUTPUT	16
-
 typedef struct _xf86CrtcConfig {
-   int			num_output;
-   xf86OutputPtr	output[XF86_MAX_OUTPUT];
-   /**
-    * compat_output is used whenever we deal
-    * with legacy code that only understands a single
-    * output. pScrn->modes will be loaded from this output,
-    * adjust frame will whack this output, etc.
-    */
-   int			compat_output;
-    
-   int			num_crtc;
-   xf86CrtcPtr		crtc[XF86_MAX_CRTC];
+    int			num_output;
+    xf86OutputPtr	*output;
+    /**
+     * compat_output is used whenever we deal
+     * with legacy code that only understands a single
+     * output. pScrn->modes will be loaded from this output,
+     * adjust frame will whack this output, etc.
+     */
+    int			compat_output;
+
+    int			num_crtc;
+    xf86CrtcPtr		*crtc;
+
+    int			minWidth, minHeight;
+    int			maxWidth, maxHeight;
 } xf86CrtcConfigRec, *xf86CrtcConfigPtr;
 
-#define XF86_CRTC_CONFIG_PTR(p)	((xf86CrtcConfigPtr) ((p)->driverPrivate))
+extern int xf86CrtcConfigPrivateIndex;
+
+#define XF86_CRTC_CONFIG_PTR(p)	((xf86CrtcConfigPtr) ((p)->privates[xf86CrtcConfigPrivateIndex].ptr))
+
+/*
+ * Initialize xf86CrtcConfig structure
+ */
+
+void
+xf86CrtcConfigInit (ScrnInfoPtr		scrn);
+
+void
+xf86CrtcSetSizeRange (ScrnInfoPtr scrn,
+		      int minWidth, int minHeight,
+		      int maxWidth, int maxHeight);
 
 /*
  * Crtc functions
@@ -367,6 +380,9 @@ xf86OutputCreate (ScrnInfoPtr		scrn,
 		      const char	*name);
 
 void
+xf86OutputRename (xf86OutputPtr output, const char *name);
+
+void
 xf86OutputDestroy (xf86OutputPtr	output);
 
 void
@@ -377,5 +393,8 @@ xf86SetScrnInfoModes (ScrnInfoPtr pScrn);
 
 Bool
 xf86InitialConfiguration (ScrnInfoPtr pScrn);
+
+void
+xf86DPMSSet(ScrnInfoPtr pScrn, int PowerManagementMode, int flags);
 
 #endif /* _XF86CRTC_H_ */

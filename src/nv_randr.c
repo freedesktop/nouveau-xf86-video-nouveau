@@ -493,13 +493,17 @@ xf86RandR12CrtcNotify (RRCrtcPtr	randr_crtc)
     int			y;
     Rotation		rotation;
     int			numOutputs;
-    RROutputPtr		randr_outputs[XF86_MAX_OUTPUT];
+    RROutputPtr		*randr_outputs;
     RROutputPtr		randr_output;
     xf86CrtcPtr		crtc = randr_crtc->devPrivate;
     xf86OutputPtr	output;
     int			i, j;
     DisplayModePtr	curMode = &crtc->curMode;
+    Bool		ret;
 
+    randr_outputs = ALLOCATE_LOCAL(config->num_output * sizeof (RROutputPtr));
+    if (!randr_outputs)
+	return FALSE;
     x = crtc->x;
     y = crtc->y;
     rotation = RR_Rotate_0;
@@ -527,8 +531,10 @@ xf86RandR12CrtcNotify (RRCrtcPtr	randr_crtc)
 	    }
 	}
     }
-    return RRCrtcNotify (randr_crtc, randr_mode, x, y,
-			 rotation, numOutputs, randr_outputs);
+    ret = RRCrtcNotify (randr_crtc, randr_mode, x, y,
+			rotation, numOutputs, randr_outputs);
+    DEALLOCATE_LOCAL(randr_outputs);
+    return ret;
 }
 
 static Bool
@@ -548,9 +554,10 @@ xf86RandR12CrtcSet (ScreenPtr	pScreen,
     Bool		changed = FALSE;
     Bool		pos_changed;
     int			o, ro;
-    xf86CrtcPtr		save_crtcs[XF86_MAX_OUTPUT];
+    xf86CrtcPtr		*save_crtcs;
     Bool		save_enabled = crtc->enabled;
 
+    save_crtcs = ALLOCATE_LOCAL(config->num_crtc * sizeof (xf86CrtcPtr));
     if ((mode != NULL) != crtc->enabled)
 	changed = TRUE;
     else if (mode && !xf86ModesEqual (&crtc->curMode, mode))
@@ -604,6 +611,7 @@ xf86RandR12CrtcSet (ScreenPtr	pScreen,
 		    xf86OutputPtr	output = config->output[o];
 		    output->crtc = save_crtcs[o];
 		}
+		DEALLOCATE_LOCAL(save_crtcs);
 		return FALSE;
 	    }
 	    crtc->desiredMode = *mode;
@@ -614,6 +622,7 @@ xf86RandR12CrtcSet (ScreenPtr	pScreen,
     }
     if (pos_changed && mode)
 	nvPipeSetBase(crtc, x, y);
+    DEALLOCATE_LOCAL(save_crtcs);
     return xf86RandR12CrtcNotify (randr_crtc);
 }
 
@@ -692,13 +701,15 @@ xf86RandR12SetInfo12 (ScreenPtr pScreen)
 {
     ScrnInfoPtr		pScrn = xf86Screens[pScreen->myNum];
     xf86CrtcConfigPtr   config = XF86_CRTC_CONFIG_PTR(pScrn);
-    RROutputPtr		clones[XF86_MAX_OUTPUT];
-    RRCrtcPtr		crtcs[XF86_MAX_CRTC];
+    RROutputPtr		*clones;
+    RRCrtcPtr		*crtcs;
     int			ncrtc;
     int			o, c, l;
     RRCrtcPtr		randr_crtc;
     int			nclone;
     
+    clones = ALLOCATE_LOCAL(config->num_output * sizeof (RROutputPtr));
+    crtcs = ALLOCATE_LOCAL (config->num_crtc * sizeof (RRCrtcPtr));
     for (o = 0; o < config->num_output; o++)
     {
 	xf86OutputPtr	output = config->output[o];
@@ -714,7 +725,11 @@ xf86RandR12SetInfo12 (ScreenPtr pScreen)
 	    randr_crtc = NULL;
 
 	if (!RROutputSetCrtcs (output->randr_output, crtcs, ncrtc))
+	{
+	    DEALLOCATE_LOCAL (crtcs);
+	    DEALLOCATE_LOCAL (clones);
 	    return FALSE;
+	}
 
 	RROutputSetCrtc (output->randr_output, randr_crtc);
 	RROutputSetPhysicalSize(output->randr_output, 
@@ -748,8 +763,14 @@ xf86RandR12SetInfo12 (ScreenPtr pScreen)
 		clones[nclone++] = clone->randr_output;
 	}
 	if (!RROutputSetClones (output->randr_output, clones, nclone))
+	{
+	    DEALLOCATE_LOCAL (crtcs);
+	    DEALLOCATE_LOCAL (clones);
 	    return FALSE;
+	}
     }
+    DEALLOCATE_LOCAL (crtcs);
+    DEALLOCATE_LOCAL (clones);
     return TRUE;
 }
 
@@ -812,9 +833,10 @@ xf86RandR12CreateScreenResources12 (ScreenPtr pScreen)
     XF86RandRInfoPtr	randrp = XF86RANDRINFO(pScreen);
     int			c;
     int			width, height;
+    int			mmWidth, mmHeight;
 
     /*
-     * Compute width of screen
+     * Compute size of screen
      */
     width = 0; height = 0;
     for (c = 0; c < config->num_crtc; c++)
@@ -831,14 +853,19 @@ xf86RandR12CreateScreenResources12 (ScreenPtr pScreen)
     
     if (width && height)
     {
-	int mmWidth, mmHeight;
-
-	mmWidth = pScreen->mmWidth;
-	mmHeight = pScreen->mmHeight;
-	if (width != pScreen->width)
-	    mmWidth = mmWidth * width / pScreen->width;
-	if (height != pScreen->height)
-	    mmHeight = mmHeight * height / pScreen->height;
+	/*
+	 * Compute physical size of screen
+	 */
+	if (monitorResolution) 
+	{
+	    mmWidth = width * 25.4 / monitorResolution;
+	    mmHeight = height * 25.4 / monitorResolution;
+	}
+	else
+	{
+	    mmWidth = pScreen->mmWidth;
+	    mmHeight = pScreen->mmHeight;
+	}
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 		   "Setting screen physical size to %d x %d\n",
 		   mmWidth, mmHeight);
