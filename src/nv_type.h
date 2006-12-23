@@ -99,6 +99,16 @@ typedef struct {
     DisplayModePtr mode;
 } NVFBLayout;
 
+typedef struct _nv_crtc_reg 
+{
+    unsigned char MiscOutReg;     /* */
+    CARD8 CRTC[90];
+    CARD8 Sequencer[5];
+    CARD8 Graphics[9];
+    CARD8 Attribute[21];
+    unsigned char DAC[768];       /* Internal Colorlookuptable */
+} NVCrtcRegRec, *NVCrtcRegPtr;
+
 typedef struct _riva_hw_state
 {
     CARD32 bpp;
@@ -136,6 +146,7 @@ typedef struct _riva_hw_state
     CARD32 timingV;
     CARD32 displayV;
     CARD32 crtcSync;
+    NVCrtcRegRec crtc_reg[2];
 } RIVA_HW_STATE, *NVRegPtr;
 
 typedef struct {
@@ -162,8 +173,6 @@ typedef struct _NVOutputPrivateRec {
 
 typedef struct _NVRec *NVPtr;
 typedef struct _NVRec {
-    xf86CrtcConfigRec xf86_config;
-
     RIVA_HW_STATE       SavedReg;
     RIVA_HW_STATE       ModeReg;
     RIVA_HW_STATE       *CurrentState;

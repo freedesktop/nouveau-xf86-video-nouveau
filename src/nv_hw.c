@@ -277,7 +277,7 @@ static void nvGetClocks(NVPtr pNv, unsigned int *MClk, unsigned int *NVClk)
 }
 
 
-static void nv4CalcArbitration (
+void nv4CalcArbitration (
     nv4_fifo_info *fifo,
     nv4_sim_state *arb
 )
@@ -452,7 +452,7 @@ static void nv4UpdateArbitrationSettings (
     }
 }
 
-static void nv10CalcArbitration (
+void nv10CalcArbitration (
     nv10_fifo_info *fifo,
     nv10_sim_state *arb
 )
@@ -680,7 +680,7 @@ static void nv10UpdateArbitrationSettings (
 }
 
 
-static void nv30UpdateArbitrationSettings (
+void nv30UpdateArbitrationSettings (
     NVPtr        pNv,
     unsigned     *burst,
     unsigned     *lwm
@@ -701,7 +701,7 @@ static void nv30UpdateArbitrationSettings (
     *lwm = graphics_lwm >> 3;
 }
 
-static void nForceUpdateArbitrationSettings (
+void nForceUpdateArbitrationSettings (
     unsigned      VClk,
     unsigned      pixelDepth,
     unsigned     *burst,
@@ -959,7 +959,6 @@ void NVCalcStateExt (
     state->repaint0 = (((width / 8) * pixelDepth) & 0x700) >> 3;
     state->pixel    = (pixelDepth > 2) ? 3 : pixelDepth;
 }
-
 
 void NVLoadStateExt (
     ScrnInfoPtr pScrn,

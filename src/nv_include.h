@@ -79,4 +79,6 @@
 #include "nouveau_reg.h"
 #include "nvreg.h"
 
+#include "nv_xf86Crtc.h"
+
 #endif /* __NV_INCLUDE_H__ */

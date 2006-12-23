@@ -94,5 +94,17 @@ void NVPointerMoved(int index, int x, int y);
 /* in nv_bios.c */
 unsigned int NVParseBios(ScrnInfoPtr pScrn);
 
+void nForceUpdateArbitrationSettings (unsigned      VClk,  unsigned      pixelDepth,
+				      unsigned     *burst, unsigned     *lwm,
+				      NVPtr        pNv);
+
+
+/* nv_crtc.c */
+Bool NVCrtcSetMode(xf86CrtcPtr crtc, DisplayModePtr pMode);
+Bool NVCrtcInUse (xf86CrtcPtr crtc);
+DisplayModePtr NvCrtcFindClosestMode(xf86CrtcPtr crtc, DisplayModePtr pMode);
+void nv_unload_state_ext(xf86CrtcPtr crtc);
+void nv_crtc_load_state (xf86OutputPtr crtc);
+
 #endif /* __NV_PROTO_H__ */
 

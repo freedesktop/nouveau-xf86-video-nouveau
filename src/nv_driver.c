@@ -835,7 +835,19 @@ NVProbe(DriverPtr drv, int flags)
 Bool
 NVSwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 {
-    return NVModeInit(xf86Screens[scrnIndex], mode);
+   ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+   NVPtr pNv = NVPTR(pScrn);
+   Bool ret = TRUE;
+
+   if (1) { //pNv->currentMode != mode) {
+      if (!NvSetMode(pScrn, mode))
+         ret = FALSE;
+   }
+
+   //   pI830->currentMode = mode;
+    
+    return ret;
+    //    return NVModeInit(xf86Screens[scrnIndex], mode);
 }
 
 /*
@@ -847,13 +859,15 @@ void
 NVAdjustFrame(int scrnIndex, int x, int y, int flags)
 {
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+    xf86CrtcConfigPtr	config = XF86_CRTC_CONFIG_PTR(pScrn);
     int startAddr;
     NVPtr pNv = NVPTR(pScrn);
     NVFBLayout *pLayout = &pNv->CurrentLayout;
-
-    startAddr = (((y*pLayout->displayWidth)+x)*(pLayout->bitsPerPixel/8));
-	startAddr += (pNv->FB->offset - pNv->VRAMPhysical);
-    NVSetStartAddress(pNv, startAddr);
+    xf86CrtcPtr	crtc = config->output[config->compat_output]->crtc;
+    
+    if (crtc && crtc->enabled) {
+	NVCrtcSetBase(crtc, x, y);
+    }
 }
 
 
@@ -869,11 +883,28 @@ static Bool
 NVEnterVT(int scrnIndex, int flags)
 {
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+    xf86CrtcConfigPtr   xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
     NVPtr pNv = NVPTR(pScrn);
+    int i;
 
-    if (!NVModeInit(pScrn, pScrn->currentMode))
-        return FALSE;
-    NVAdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
+   for (i = 0; i < xf86_config->num_crtc; i++)
+   {
+      xf86CrtcPtr	crtc = xf86_config->crtc[i];
+
+      /* Mark that we'll need to re-set the mode for sure */
+      memset(&crtc->curMode, 0, sizeof(crtc->curMode));
+      if (!crtc->desiredMode.CrtcHDisplay)
+	 crtc->desiredMode = *NvCrtcFindClosestMode (crtc, pScrn->currentMode);
+      
+      if (!NvCrtcSetMode (crtc, &crtc->desiredMode, TRUE))
+	 return FALSE;
+      
+      NvCrtcSetBase(crtc, crtc->x, crtc->y);
+   }
+
+   //  if (!NVModeInit(pScrn, pScrn->currentMode))
+   //      return FALSE;
+   /// NVAdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
 
     if(pNv->overlayAdaptor)
         NVResetVideo(pScrn);
@@ -1556,7 +1587,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
     }    
 
 
-    NVPreInitOldCode(pScrn);
+    //    NVPreInitOldCode(pScrn);
     pScrn->videoRam = pNv->RamAmountKBytes;
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "VideoRAM: %d kBytes\n",
                pScrn->videoRam);
@@ -1713,6 +1744,21 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
     pNv->CurrentLayout.weight.green = pScrn->weight.green;
     pNv->CurrentLayout.weight.blue = pScrn->weight.blue;
     pNv->CurrentLayout.mode = pScrn->currentMode;
+
+    if (!xf86RandR12PreInit (pScrn))
+    {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "RandR initialization failure\n");
+	PreInitCleanup(pScrn);
+	return FALSE;
+    }	
+    
+    if (pScrn->modes == NULL) {
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "No modes.\n");
+	PreInitCleanup(pScrn);
+	return FALSE;
+    }
+
+    pScrn->currentMode = pScrn->modes;
 
     xf86FreeInt10(pNv->pInt);
 
@@ -2149,6 +2195,7 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	NULL, CMAP_RELOAD_ON_MODE_SWITCH | CMAP_PALETTED_TRUECOLOR))
 	return FALSE;
 
+    xf86DisableRandR(); /* Disable built-in RandR extension */
     xf86RandR12Init (pScreen);
     xf86RandR12SetRotations (pScreen, RR_Rotate_0); /* only 0 degrees for I965G */
     pNv->PointerMoved = pScrn->PointerMoved;
@@ -2202,7 +2249,7 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pNv->BlockHandler = pScreen->BlockHandler;
     pScreen->BlockHandler = NVBlockHandler;
 
-#ifdef RANDR
+#if 0 //def RANDR
     /* Install our DriverFunc.  We have to do it this way instead of using the
      * HaveDriverFuncs argument to xf86AddDriver, because InitOutput clobbers
      * pScrn->DriverFunc */
@@ -2300,3 +2347,4 @@ NVDriverFunc(ScrnInfoPtr pScrn, xorgDriverFuncOp op, pointer data)
     return FALSE;
 }
 #endif
+

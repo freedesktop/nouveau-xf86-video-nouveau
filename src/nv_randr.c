@@ -605,7 +605,7 @@ xf86RandR12CrtcSet (ScreenPtr	pScreen,
 
 	if (mode)
 	{
-	    if (!nvPipeSetMode (crtc, mode, TRUE))
+	    if (!nvCrtcSetMode (crtc, mode))
 	    {
 		crtc->enabled = save_enabled;
 		for (o = 0; o < config->num_output; o++)
@@ -618,12 +618,12 @@ xf86RandR12CrtcSet (ScreenPtr	pScreen,
 	    }
 	    crtc->desiredMode = *mode;
 	}
-	nvDisableUnusedFunctions (pScrn);
+	//	nvDisableUnusedFunctions (pScrn);
 
-	nvDumpRegs(pScrn);
+	//	nvDumpRegs(pScrn);
     }
     if (pos_changed && mode)
-	nvPipeSetBase(crtc, x, y);
+	nvCrtcSetBase(crtc, x, y);
     DEALLOCATE_LOCAL(save_crtcs);
     return xf86RandR12CrtcNotify (randr_crtc);
 }
