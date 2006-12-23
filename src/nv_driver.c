@@ -2040,10 +2040,14 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 
 	/* Save the current state */
 	NVSave(pScrn);
-	/* Initialise the first mode */
-	if (!NVModeInit(pScrn, pScrn->currentMode)) {
-	    return FALSE;
-    }
+
+	
+	//	/* Initialise the first mode */
+	//	if (!NVModeInit(pScrn, pScrn->currentMode)) {
+	//   
+	if (!NVEnterVT(scrnIndex, 0))
+	  return FALSE;
+	//    }
 
     /* Darken the screen for aesthetic reasons and set the viewport */
     NVSaveScreen(pScreen, SCREEN_SAVER_ON);
