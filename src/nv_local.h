@@ -56,11 +56,12 @@ static inline void nv_wr08(void *p, int i, CARD8 d, char *fname)
 {
   static int last_vga = 0;
 
+  if (i == 0x3d4)
+    last_vga = d;
+
   if (strcmp(fname, "nvReadVGA") && last_vga != 0x3f && last_vga != 0x37)
     ErrorF("wr08: %08X %08X, %02X\t%s\n", p, i, d, fname);
   MMIO_OUT8((pointer)(p), (i), (d));
-  if (i == 0x3d4)
-    last_vga = d;
 }
 
 #define DAVE_DEBUG
