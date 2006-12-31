@@ -1001,6 +1001,9 @@ nv_crtc_init(ScrnInfoPtr pScrn, int crtc_num)
     
     nv_crtc->pVGAReg = pNv->PVIO;
     crtc->driver_private = nv_crtc;
+
+    NVCrtcLockUnlock(crtc, 0);
+
 }
 
 static void nv_crtc_load_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
