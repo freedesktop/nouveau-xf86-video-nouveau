@@ -376,8 +376,6 @@ NVCommonSetup(ScrnInfoPtr pScrn)
 
     NVSelectHeadRegisters(pScrn, 0);
 
-    NVLockUnlock(pNv, 0);
-      
     pNv->vtOWNER = nvReadVGA(pNv, NV_VGA_CRTCX_OWNER);
 
     /* look for known laptop chips */

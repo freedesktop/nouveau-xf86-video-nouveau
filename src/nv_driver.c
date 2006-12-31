@@ -933,7 +933,6 @@ NVLeaveVT(int scrnIndex, int flags)
 
     NVSync(pScrn);
     NVRestore(pScrn);
-    NVLockUnlock(pNv, 1);
 }
 
 
@@ -981,7 +980,6 @@ NVCloseScreen(int scrnIndex, ScreenPtr pScreen)
         pScrn->vtSema = FALSE;
         NVSync(pScrn);
         NVRestore(pScrn);
-        NVLockUnlock(pNv, 1);
     }
 
     NVUnmapMem(pScrn);

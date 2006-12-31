@@ -962,6 +962,9 @@ void nv_crtc_restore(xf86CrtcPtr crtc)
     
     nv_crtc_load_state_ext(crtc, &pNv->SavedReg);
     nv_crtc_load_state_vga(crtc, &pNv->SavedReg);
+
+    NVCrtcLockUnlock(crtc, 1);
+
 }
 
 static const xf86CrtcFuncsRec nv_crtc_funcs = {

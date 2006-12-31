@@ -64,8 +64,6 @@ void NVCalcStateExt(NVPtr,struct _riva_hw_state *,int,int,int,int,int,int);
 void NVLoadStateExt(ScrnInfoPtr pScrn,struct _riva_hw_state *);
 void NVUnloadStateExt(NVPtr,struct _riva_hw_state *);
 void NVSetStartAddress(NVPtr,CARD32);
-int  NVShowHideCursor(NVPtr,int);
-void NVLockUnlock(NVPtr,int);
 uint8_t nvReadVGA(NVPtr pNv, uint8_t index);
 void nvWriteVGA(NVPtr pNv, uint8_t index, uint8_t data);
 void nvWriteRAMDAC(NVPtr pNv, uint8_t head, uint32_t ramdac_reg, CARD32 val);
