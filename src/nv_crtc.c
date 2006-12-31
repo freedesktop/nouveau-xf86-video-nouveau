@@ -375,7 +375,7 @@ void nv_crtc_calc_state_ext(
 
 
 	    CursorStart = pNv->Cursor->offset - pNv->VRAMPhysical;
-	    ErrorF("Cursor Start is at %08X\n", CursorStart);
+
             regp->CRTC[NV_VGA_CRTCX_CURCTL0] = 0x80 | (CursorStart >> 17);
             regp->CRTC[NV_VGA_CRTCX_CURCTL1] = (CursorStart >> 11) << 2;
 	    regp->CRTC[NV_VGA_CRTCX_CURCTL2] = CursorStart >> 24;
