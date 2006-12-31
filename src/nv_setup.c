@@ -42,6 +42,8 @@
 #include "nv_include.h"
 #include "nvreg.h"
 
+CARD32 debug_offset;
+
 /*
  * Override VGA I/O routines.
  */
@@ -384,7 +386,8 @@ NVCommonSetup(ScrnInfoPtr pScrn)
     pNv->REGS = xf86MapPciMem(pScrn->scrnIndex, 
                               VIDMEM_MMIO | VIDMEM_READSIDEEFFECT, 
                               pNv->PciTag, pNv->IOAddress, 0x01000000);
-
+    
+    debug_offset = pNv->REGS;
     pNv->PRAMIN   = pNv->REGS + (NV_PRAMIN_OFFSET/4);
     pNv->PCRTC0   = pNv->REGS + (NV_PCRTC0_OFFSET/4);
     pNv->PRAMDAC0 = pNv->REGS + (NV_PRAMDAC0_OFFSET/4);

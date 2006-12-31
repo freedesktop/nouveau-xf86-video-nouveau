@@ -52,6 +52,7 @@
 #include "compiler.h"
 #include "xf86_OSproc.h"
 
+extern CARD32 debug_offset;
 static inline void nv_wr08(void *p, int i, CARD8 d, char *fname)
 {
   static int last_vga = 0;
@@ -60,14 +61,14 @@ static inline void nv_wr08(void *p, int i, CARD8 d, char *fname)
     last_vga = d;
 
   if (strcmp(fname, "nvReadVGA") && last_vga != 0x3f && last_vga != 0x37)
-    ErrorF("wr08: %08X %08X, %02X\t%s\n", p, i, d, fname);
+    ErrorF("wr08: %08X %08X, %02X\t%s\n", p-debug_offset, i, d, fname);
   MMIO_OUT8((pointer)(p), (i), (d));
 }
 
 #define DAVE_DEBUG
 #ifdef DAVE_DEBUG
 #define NV_WR08(p,i,d)  nv_wr08(p, i, d, __FUNCTION__)
-#define NV_WR32(p,i,d)  do { ErrorF("wr32: %08X, %08X\t%s\n", p + i, d, __FUNCTION__); MMIO_OUT32((pointer)(p), (i), (d)); } while(0)
+#define NV_WR32(p,i,d)  do { ErrorF("wr32: %08X, %08X\t%s\n", p -debug_offset + i, d, __FUNCTION__); MMIO_OUT32((pointer)(p), (i), (d)); } while(0)
 #else
 #define NV_WR08(p,i,d)  MMIO_OUT8((pointer)(p), (i), (d))
 #define NV_WR32(p,i,d)  MMIO_OUT32((pointer)(p), (i), (d))

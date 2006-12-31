@@ -1408,7 +1408,7 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
         xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "forcing %s usage\n",
                    pNv->FlatPanel ? "DFP" : "CRTC");
     } else {
-        pNv->FlatPanel = -1;   /* autodetect later */
+      pNv->FlatPanel = 0;//-1;   /* autodetect later */
     }
 
     pNv->FPDither = FALSE;
@@ -1588,7 +1588,6 @@ NVPreInit(ScrnInfoPtr pScrn, int flags)
     }    
 
 
-    //    NVPreInitOldCode(pScrn);
     pScrn->videoRam = pNv->RamAmountKBytes;
     xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "VideoRAM: %d kBytes\n",
                pScrn->videoRam);
@@ -2103,7 +2102,7 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pScrn->memPhysBase = pNv->VRAMPhysical;
     pScrn->fbOffset = 0;
 
-
+    ErrorF("Calling ENTERVT\n");
 	
 	//	/* Initialise the first mode */
 	//	if (!NVModeInit(pScrn, pScrn->currentMode)) {
@@ -2271,7 +2270,6 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     else
        xf86DPMSInit(pScreen, NVDPMSSet, 0);
 #endif
-    
 
     xf86DisableRandR(); /* Disable built-in RandR extension */
     xf86RandR12Init (pScreen);
@@ -2348,7 +2346,8 @@ NVSave(ScrnInfoPtr pScrn)
 
     NVLockUnlock(pNv, 0);
     if(pNv->twoHeads) {
-        nvWriteVGA(pNv, NV_VGA_CRTCX_OWNER, pNv->CRTCnumber * 0x3);
+      // TODO FIXME DIRTY HACK
+      nvWriteVGA(pNv, NV_VGA_CRTCX_OWNER, 0);//1 * 0x3);
         NVLockUnlock(pNv, 0);
     }
 
