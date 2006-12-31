@@ -19,17 +19,6 @@ Bool NVDRIFinishScreenInit(ScrnInfoPtr pScrn);
 extern const char *drmSymbols[], *driSymbols[];
 Bool NVDRIGetVersion(ScrnInfoPtr pScrn);
 
-/* in nv_dac.c */
-Bool   NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode);
-void   NVDACSave(ScrnInfoPtr pScrn, vgaRegPtr vgaReg,
-                 NVRegPtr nvReg, Bool saveFonts);
-void   NVDACRestore(ScrnInfoPtr pScrn, vgaRegPtr vgaReg,
-                    NVRegPtr nvReg, Bool restoreFonts);
-void   NVDACLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
-                        LOCO *colors, VisualPtr pVisual );
-Bool   NVDACi2cInit(ScrnInfoPtr pScrn);
-
-
 /* in nv_video.c */
 void NVInitVideo(ScreenPtr);
 void NVResetVideo (ScrnInfoPtr pScrnInfo);
@@ -105,8 +94,32 @@ Bool NVCrtcSetMode(xf86CrtcPtr crtc, DisplayModePtr pMode);
 Bool NVCrtcInUse (xf86CrtcPtr crtc);
 DisplayModePtr NVCrtcFindClosestMode(xf86CrtcPtr crtc, DisplayModePtr pMode);
 void NVCrtcSetBase (xf86CrtcPtr crtc, int x, int y);
-void nv_crtc_load_vga_state(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
-void nv_crtc_load_state (xf86CrtcPtr crtc, RIVA_HW_STATE *state);
+void NVCrtcLoadPalette(xf86CrtcPtr crtc);
+void NVCrtcBlankScreen(xf86CrtcPtr crtc, Bool on);
+
+/* nv_hw.c */
+void nForceUpdateArbitrationSettings (unsigned VClk, unsigned pixelDepth,
+				      unsigned     *burst, unsigned     *lwm,
+				      NVPtr        pNv);
+void nv30UpdateArbitrationSettings (NVPtr        pNv,
+				    unsigned     *burst,
+				    unsigned     *lwm);
+void nv10UpdateArbitrationSettings (unsigned      VClk, 
+				    unsigned      pixelDepth, 
+				    unsigned     *burst,
+				    unsigned     *lwm,
+				    NVPtr        pNv);
+void nv4UpdateArbitrationSettings (unsigned      VClk, 
+				   unsigned      pixelDepth, 
+				   unsigned     *burst,
+				   unsigned     *lwm,
+				   NVPtr        pNv);
+
+void NVInitSurface(ScrnInfoPtr pScrn, RIVA_HW_STATE *state);
+void NVInitGraphContext(ScrnInfoPtr pScrn, RIVA_HW_STATE *state);
+
+/* nv_i2c.c */
+Bool NV_I2CInit(ScrnInfoPtr pScrn, I2CBusPtr *bus_ptr, int i2c_reg, char *name);
 
 #endif /* __NV_PROTO_H__ */
 

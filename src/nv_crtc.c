@@ -55,10 +55,10 @@
 #define BLACK_VALUE 0x00
 #define OVERSCAN_VALUE 0x01
 
-void nv_crtc_load_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
-void nv_crtc_load_state_ext (xf86CrtcPtr crtc, RIVA_HW_STATE *state);
-void nv_crtc_save_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
-void nv_crtc_save_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
+static void nv_crtc_load_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
+static void nv_crtc_load_state_ext (xf86CrtcPtr crtc, RIVA_HW_STATE *state);
+static void nv_crtc_save_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
+static void nv_crtc_save_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state);
 
 static void NVWriteMiscOut(xf86CrtcPtr crtc, CARD8 value)
 {
@@ -1000,7 +1000,7 @@ nv_crtc_init(ScrnInfoPtr pScrn, int crtc_num)
     crtc->driver_private = nv_crtc;
 }
 
-void nv_crtc_load_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
+static void nv_crtc_load_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
 {
     ScrnInfoPtr pScrn = crtc->scrn;
     NVPtr pNv = NVPTR(pScrn);    
@@ -1032,7 +1032,7 @@ void nv_crtc_load_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
 
 }
 
-void nv_crtc_load_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
+static void nv_crtc_load_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
 {
     ScrnInfoPtr pScrn = crtc->scrn;
     NVPtr pNv = NVPTR(pScrn);    
@@ -1118,7 +1118,7 @@ void nv_crtc_load_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
     pNv->CurrentState = state;
 }
 
-void nv_crtc_save_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
+static void nv_crtc_save_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
 {
     ScrnInfoPtr pScrn = crtc->scrn;
     NVPtr pNv = NVPTR(pScrn);    
@@ -1146,7 +1146,7 @@ void nv_crtc_save_state_vga(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
   
 }
 
-void nv_crtc_save_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
+static void nv_crtc_save_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
 {
     ScrnInfoPtr pScrn = crtc->scrn;
     NVPtr pNv = NVPTR(pScrn);    

@@ -680,11 +680,9 @@ void nv10UpdateArbitrationSettings (
 }
 
 
-void nv30UpdateArbitrationSettings (
-    NVPtr        pNv,
-    unsigned     *burst,
-    unsigned     *lwm
-)   
+void nv30UpdateArbitrationSettings (NVPtr pNv,
+				    unsigned     *burst,
+				    unsigned     *lwm)   
 {
     unsigned int MClk, NVClk;
     unsigned int fifo_size, burst_size, graphics_lwm;
@@ -701,12 +699,11 @@ void nv30UpdateArbitrationSettings (
     *lwm = graphics_lwm >> 3;
 }
 
-void nForceUpdateArbitrationSettings (
-    unsigned      VClk,
-    unsigned      pixelDepth,
-    unsigned     *burst,
-    unsigned     *lwm,
-    NVPtr        pNv
+void nForceUpdateArbitrationSettings (unsigned VClk,
+				      unsigned      pixelDepth,
+				      unsigned     *burst,
+				      unsigned     *lwm,
+				      NVPtr        pNv
 )
 {
     nv10_fifo_info fifo_data;
