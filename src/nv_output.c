@@ -60,11 +60,19 @@ const char *MonTypeName[7] = {
   "STV"
 };
 
+void NVWriteRAMDAC0(xf86OutputPtr output, CARD32 ramdac_reg, CARD32 val)
+{
+  NVOutputPrivatePtr nv_output = output->driver_private;
+  ScrnInfoPtr	pScrn = output->scrn;
+  NVPtr pNv = NVPTR(pScrn);
+
+  NV_WR32(pNv->PRAMDAC0, ramdac_reg, val);
+}
+
 void NVWriteRAMDAC(xf86OutputPtr output, CARD32 ramdac_reg, CARD32 val)
 {
   NVOutputPrivatePtr nv_output = output->driver_private;
   NV_WR32(nv_output->pRAMDACReg, ramdac_reg, val);
-
 }
 
 CARD32 NVReadRAMDAC(xf86OutputPtr output, CARD32 ramdac_reg)
@@ -110,6 +118,19 @@ static Bool
 nv_output_mode_fixup(xf86OutputPtr output, DisplayModePtr mode,
 		    DisplayModePtr adjusted_mode)
 {
+    NVOutputPrivatePtr nv_output = output->driver_private;
+
+#if 0
+    if(nv_output->mon_type == MT_LCD) {
+       vertStart = vertTotal - 3;  
+       vertEnd = vertTotal - 2;
+       vertBlankStart = vertStart;
+       horizStart = horizTotal - 5;
+       horizEnd = horizTotal - 2;   
+       horizBlankEnd = horizTotal + 4;    
+    }
+#endif
+
     return TRUE;
 }
 
@@ -117,7 +138,26 @@ static void
 nv_output_mode_set(xf86OutputPtr output, DisplayModePtr mode,
 		  DisplayModePtr adjusted_mode)
 {
+    NVOutputPrivatePtr nv_output = output->driver_private;
+    ScrnInfoPtr	pScrn = output->scrn;
+    NVPtr pNv = NVPTR(pScrn);
+    RIVA_HW_STATE *state;
 
+    state = &pNv->ModeReg;
+    if(nv_output->mon_type == MT_CRT) {
+	NVWriteRAMDAC0(output, NV_RAMDAC_PLL_SELECT, state->pllsel);
+	NVWriteRAMDAC0(output, NV_RAMDAC_VPLL, state->vpll);
+	if(pNv->twoHeads)
+	    NVWriteRAMDAC0(output, NV_RAMDAC_VPLL2, state->vpll2);
+	if(pNv->twoStagePLL) {
+	    NVWriteRAMDAC0(output, NV_RAMDAC_VPLL_B, state->vpllB);
+	    NVWriteRAMDAC0(output, NV_RAMDAC_VPLL2_B, state->vpll2B);
+	}
+    } else {
+	NVWriteRAMDAC(output, NV_RAMDAC_FP_CONTROL, state->scale);
+	NVWriteRAMDAC(output, NV_RAMDAC_FP_HCRTC, state->crtcSync);
+    }
+    NVWriteRAMDAC(output, NV_RAMDAC_GENERAL_CONTROL, state->general);
 
 }
 

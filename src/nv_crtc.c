@@ -1031,21 +1031,6 @@ void nv_crtc_load_state(xf86CrtcPtr crtc)
     NVWriteVgaCrtc(crtc, NV_VGA_CRTCX_CURCTL2, regp->CRTC[NV_VGA_CRTCX_CURCTL2]);
     NVWriteVgaCrtc(crtc, NV_VGA_CRTCX_INTERLACE, regp->CRTC[NV_VGA_CRTCX_INTERLACE]);
 
-    if(1/*!pNv->FlatPanel*/) {
-       nvWriteRAMDAC0(pNv, NV_RAMDAC_PLL_SELECT, state->pllsel);
-       nvWriteRAMDAC0(pNv, NV_RAMDAC_VPLL, state->vpll);
-       if(pNv->twoHeads)
-          nvWriteRAMDAC0(pNv, NV_RAMDAC_VPLL2, state->vpll2);
-       if(pNv->twoStagePLL) {
-          nvWriteRAMDAC0(pNv, NV_RAMDAC_VPLL_B, state->vpllB);
-          nvWriteRAMDAC0(pNv, NV_RAMDAC_VPLL2_B, state->vpll2B);
-       }
-    } else {
-       nvWriteCurRAMDAC(pNv, NV_RAMDAC_FP_CONTROL, state->scale);
-       nvWriteCurRAMDAC(pNv, NV_RAMDAC_FP_HCRTC, state->crtcSync);
-    }
-    nvWriteCurRAMDAC(pNv, NV_RAMDAC_GENERAL_CONTROL, state->general);
-
     nvWriteCRTC(pNv, nv_crtc->crtc, NV_CRTC_INTR_EN_0, 0);
     nvWriteCRTC(pNv, nv_crtc->crtc, NV_CRTC_INTR_0, NV_CRTC_INTR_VBLANK);
 
