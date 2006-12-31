@@ -1096,16 +1096,14 @@ void nv_crtc_load_state(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
     pNv->CurrentState = state;
 }
 
-void nv_unload_state_ext(xf86CrtcPtr crtc)
+void nv_unload_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
 {
     ScrnInfoPtr pScrn = crtc->scrn;
     NVPtr pNv = NVPTR(pScrn);    
     NVCrtcPrivatePtr nv_crtc = crtc->driver_private;
-    RIVA_HW_STATE *state;
     NVCrtcRegPtr regp;
     
-    state = &pNv->ModeReg;
-    regp = &pNv->ModeReg.crtc_reg[nv_crtc->crtc];
+    regp = &state->crtc_reg[nv_crtc->crtc];
 
     regp->CRTC[NV_VGA_CRTCX_REPAINT0] = NVReadVgaCrtc(crtc, NV_VGA_CRTCX_REPAINT0);
     regp->CRTC[NV_VGA_CRTCX_REPAINT1] = NVReadVgaCrtc(crtc, NV_VGA_CRTCX_REPAINT1);
