@@ -373,6 +373,12 @@ void nv_crtc_calc_state_ext(
                                          &(state->arbitration1));
             }
 
+	    regp->CRTC[NV_VGA_CRTCX_FIFO0] = state->arbitration0;
+	    regp->CRTC[NV_VGA_CRTCX_FIFO_LWM] = state->arbitration1 & 0xff;
+	    if (pNv->Architecture >= NV_ARCH_30) {
+	      regp->CRTC[NV_VGA_CRTCX_FIFO_LWM_NV30] = state->arbitration1 >> 8;
+	    }
+
 	    CursorStart = pNv->Cursor->offset - pNv->VRAMPhysical;
             regp->CRTC[NV_VGA_CRTCX_CURCTL0] = 0x80 | (CursorStart >> 17);
             regp->CRTC[NV_VGA_CRTCX_CURCTL1] = (CursorStart >> 11) << 2;
