@@ -59,7 +59,9 @@ nouveau_drv_la_SOURCES = \
 	 nv_randr.c \
 	 nv_output.c \
 	 nv_crtc.c \
-	 nv_i2c.c
+	 nv_i2c.c \
+	 nv_edid_modes.c \
+	 nv_xf86cvt.c
 
 #riva128_la_LTLIBRARIES = riva128.la
 #riva128_la_LDFLAGS = -module -avoid-version
