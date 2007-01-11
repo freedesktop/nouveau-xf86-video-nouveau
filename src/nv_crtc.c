@@ -706,8 +706,9 @@ nv_crtc_mode_set_regs(xf86CrtcPtr crtc, DisplayModePtr mode)
 	xf86OutputPtr  output = xf86_config->output[i];
 	NVOutputPrivatePtr nv_output = output->driver_private;
 
-	if (nv_output->mon_type == MT_LCD || nv_output->mon_type == MT_DFP)
-	  is_fp = TRUE;
+ 	if (output->crtc == crtc)
+	    if (nv_output->mon_type == MT_LCD || nv_output->mon_type == MT_DFP)
+	        is_fp = TRUE;
 	
     }
 
