@@ -404,7 +404,7 @@ void nv_crtc_calc_state_ext(
 	    if (flags & V_DBLSCAN)
 		regp->CRTC[NV_VGA_CRTCX_CURCTL1] |= 2;
             regp->CRTC[NV_VGA_CRTCX_CURCTL2] = 0x00000000;
-            state->pllsel   = 0x10000700;
+            state->pllsel   |= 0x10000700;
             state->config   = 0x00001114;
             regp->CRTC[NV_VGA_CRTCX_REPAINT1] = hDisplaySize < 1280 ? 0x04 : 0x00;
             break;
@@ -448,7 +448,7 @@ void nv_crtc_calc_state_ext(
 	    if (flags & V_DBLSCAN) 
 		regp->CRTC[NV_VGA_CRTCX_CURCTL1]|= 2;
 
-            state->pllsel   = 0x10000700;
+            state->pllsel   |= 0x10000700;
             state->config   = nvReadFB(pNv, NV_PFB_CFG0);
             regp->CRTC[NV_VGA_CRTCX_REPAINT1] = hDisplaySize < 1280 ? 0x04 : 0x00;
             break;
@@ -876,9 +876,6 @@ nv_crtc_mode_set_regs(xf86CrtcPtr crtc, DisplayModePtr mode)
 
        regp->crtcOwner = 3;
        /* only enable secondary pllsel if CRTC 1 is selected on */
-       state->pllsel |= 0x20000800;
-       state->vpll2 = state->pll;
-       state->vpll2B = state->pllB;
 
     } else {
       if(pNv->twoHeads) {
@@ -892,10 +889,22 @@ nv_crtc_mode_set_regs(xf86CrtcPtr crtc, DisplayModePtr mode)
 	}
 
 	regp->crtcOwner = 0;
+      }
+    }
+
+    for (i = 0; i < xf86_config->num_output; i++) {
+      xf86OutputPtr  output = xf86_config->output[i];
+      NVOutputPrivatePtr nv_output = output->driver_private;
+      
+      if (nv_output->ramdac) {
+	state->vpll2 = state->pll;
+	state->vpll2B = state->pllB;
+	state->pllsel |= 0x20000800;
+      } else {
 	state->vpll = state->pll;
 	state->vpllB = state->pllB;
       }
-    }
+    } 
 
     regp->cursorConfig = 0x00000100;
     if(mode->Flags & V_DBLSCAN)
@@ -1373,9 +1382,6 @@ NVCrtcSetMode(xf86CrtcPtr crtc, DisplayModePtr pMode)
 
     crtc->funcs->dpms(crtc, DPMSModeOff);
 
-    /* Set up the DPLL and any output state that needs to adjust or depend
-     * on the DPLL.
-     */
     crtc->funcs->mode_set(crtc, pMode, adjusted_mode);
     for (i = 0; i < xf86_config->num_output; i++) {
 	xf86OutputPtr output = xf86_config->output[i];
