@@ -227,8 +227,11 @@
 #define NV_RAMDAC_FP_DEBUG_0_PWRDOWN_TMDS_PLL (2<<28)
 #define NV_RAMDAC_FP_DEBUG_0_PWRDOWN_BOTH (3<<28)
 
-#define NV_RAMDAC_FP_TMDS_DATA      0x8b0
-#define NV_RAMDAC_FP_TMDS_LVDS      0x8b4
+#define NV_RAMDAC_FP_TMDS_CONTROL   0x8b0
+/* 0xff - address mask */
+#define NV_RAMDAC_FP_TMDS_CONTROL_WRITE_DISABLE (1<<16)
+#define NV_RAMDAC_FP_TMDS_DATA      0x8b4
+/* 0xff - data mask */
 
 #define NV_CRTC_INTR_0              0x100
 #	define NV_CRTC_INTR_VBLANK           1
