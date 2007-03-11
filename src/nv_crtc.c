@@ -944,6 +944,8 @@ nv_crtc_mode_set(xf86CrtcPtr crtc, DisplayModePtr mode,
     NVCrtcPrivatePtr nv_crtc = crtc->driver_private;
     NVPtr pNv = NVPTR(pScrn);
 
+    xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "Mode on CRTC %d\n", nv_crtc->crtc);
+    xf86PrintModeline(pScrn->scrnIndex, mode);
     NVCrtcSetOwner(crtc);
 
     nv_crtc_mode_set_vga(crtc, mode);
