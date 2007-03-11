@@ -634,7 +634,16 @@ void NvSetupOutputs(ScrnInfoPtr pScrn)
     
 	output->driver_private = nv_output;
 	nv_output->type = output_type;
-	nv_output->ramdac = i;
+
+	switch(pNv->Chipset & 0x0ff0) {
+	case CHIPSET_NV43:
+		nv_output->ramdac = (1 - i);
+		break;
+	default:
+		nv_output->ramdac = i;
+		break;
+	}
+	//nv_output->ramdac = i;
 
 	NV_I2CInit(pScrn, &nv_output->pDDCBus, i ? 0x36 : 0x3e, ddc_name[i]);
 	output->possible_crtcs = crtc_mask;
