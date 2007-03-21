@@ -434,6 +434,7 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	Bool ret;
+	if(pNv->NoAccel) return TRUE;
 
 	INIT_CONTEXT_OBJECT(NullObject);
 	INIT_CONTEXT_OBJECT(DmaFB);

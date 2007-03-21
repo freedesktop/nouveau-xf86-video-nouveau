@@ -198,12 +198,13 @@ Bool NVDmaCreateDMAObject(NVPtr pNv, uint32_t handle, int class,
 	drm_nouveau_dma_object_init_t dma;
 	int ret;
 
-	dma.handle = handle;
-	dma.class  = class;
-	dma.access = access;
-	dma.target = target;
-	dma.size   = size;
-	dma.offset = offset;
+	dma.channel = pNv->fifo.channel;
+	dma.handle  = handle;
+	dma.class   = class;
+	dma.access  = access;
+	dma.target  = target;
+	dma.size    = size;
+	dma.offset  = offset;
 	ret = drmCommandWrite(pNv->drm_fd, DRM_NOUVEAU_DMA_OBJECT_INIT,
 					   &dma, sizeof(dma));
 
@@ -323,8 +324,9 @@ Bool NVDmaCreateContextObject(NVPtr pNv, int handle, int class)
 	drm_nouveau_object_init_t cto;
 	int ret;
 
-	cto.handle = handle;
-	cto.class  = class;
+	cto.channel = pNv->fifo.channel;
+	cto.handle  = handle;
+	cto.class   = class;
 	ret = drmCommandWrite(pNv->drm_fd, DRM_NOUVEAU_OBJECT_INIT,
 					   &cto, sizeof(cto));
 	return ret == 0;
