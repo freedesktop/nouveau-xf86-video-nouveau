@@ -221,8 +221,6 @@ NVSetCursorPosition(ScrnInfoPtr pScrn, int x, int y)
 
       nvWriteRAMDAC(pNv, nv_crtc->crtc, NV_RAMDAC_CURSOR_POS, temp);
       
-      crtc->cursorInRange = inrange;
-
     }
 }
 
