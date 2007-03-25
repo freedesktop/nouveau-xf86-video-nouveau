@@ -71,6 +71,7 @@
 #define Set8Bits(value) ((value)&0xff)
 
 #define NV_I2C_BUSES 3
+#define NV40_NUM_DCB_ENTRIES 10
 
 typedef enum
 {
@@ -303,6 +304,11 @@ typedef struct _NVRec {
 
     /* we know about 3 i2c buses */
     I2CBusPtr           pI2CBus[3];
+    int dcb_entries;
+
+    int analog_count;
+    int digital_count;
+    CARD32 dcb_table[NV40_NUM_DCB_ENTRIES]; /* 10 is a good limit */
 } NVRec;
 
 #define NVPTR(p) ((NVPtr)((p)->driverPrivate))

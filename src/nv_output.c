@@ -682,6 +682,71 @@ static const xf86OutputFuncsRec nv_lvds_output_funcs = {
     .commit = nv_output_commit,
 };
 
+
+static void nv_add_analog_output(ScrnInfoPtr pScrn, int i2c_index)
+{
+  NVPtr pNv = NVPTR(pScrn);
+  xf86OutputPtr	    output;
+  NVOutputPrivatePtr    nv_output;
+  char outputname[20];
+  int   crtc_mask = (1<<0) | (1<<1);
+
+  sprintf(outputname, "Analog-%d", pNv->analog_count);
+  output = xf86OutputCreate (pScrn, &nv_analog_output_funcs, outputname);
+  if (!output)
+    return;
+  nv_output = xnfcalloc (sizeof (NVOutputPrivateRec), 1);
+  if (!nv_output)
+  {
+    xf86OutputDestroy (output);
+    return;
+  }
+  
+  output->driver_private = nv_output;
+  nv_output->type = OUTPUT_ANALOG;
+
+  nv_output->ramdac = pNv->analog_count;
+
+  nv_output->pDDCBus = pNv->pI2CBus[i2c_index];
+
+  output->possible_crtcs = crtc_mask;
+  xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Adding output %s\n", outputname);
+  
+  pNv->analog_count++;
+}
+
+
+static void nv_add_digital_output(ScrnInfoPtr pScrn, int i2c_index)
+{
+  NVPtr pNv = NVPTR(pScrn);
+  xf86OutputPtr	    output;
+  NVOutputPrivatePtr    nv_output;
+  char outputname[20];
+  int   crtc_mask = (1<<0) | (1<<1);
+
+  sprintf(outputname, "Digital-%d", pNv->digital_count);
+  output = xf86OutputCreate (pScrn, &nv_digital_output_funcs, outputname);
+  if (!output)
+    return;
+  nv_output = xnfcalloc (sizeof (NVOutputPrivateRec), 1);
+  if (!nv_output)
+  {
+    xf86OutputDestroy (output);
+    return;
+  }
+  
+  output->driver_private = nv_output;
+  nv_output->type = OUTPUT_DIGITAL;
+  
+  nv_output->ramdac = pNv->digital_count;
+  
+  nv_output->pDDCBus = pNv->pI2CBus[i2c_index];
+  
+  output->possible_crtcs = crtc_mask;
+  xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Adding output %s\n", outputname);
+
+  pNv->digital_count++;
+}
 /**
  * Set up the outputs according to what type of chip we are.
  *
@@ -697,61 +762,45 @@ void Nv20SetupOutputs(ScrnInfoPtr pScrn)
     int i;
     int num_analog_outputs = pNv->twoHeads ? 2 : 1;
     int num_digital_outputs = 1;
-    char outputname[20];
-    int   crtc_mask = (1<<0) | (1<<1);
 
     for (i = 0 ; i < num_analog_outputs; i++) {
-	sprintf(outputname, "Analog-%d", i);
-	output = xf86OutputCreate (pScrn, &nv_analog_output_funcs, outputname);
-	if (!output)
-	    return;
-	nv_output = xnfcalloc (sizeof (NVOutputPrivateRec), 1);
-	if (!nv_output)
-	{
-	    xf86OutputDestroy (output);
-	    return;
-	}
-
-	output->driver_private = nv_output;
-	nv_output->type = OUTPUT_ANALOG;
-
-	nv_output->ramdac = i;
-
-	nv_output->pDDCBus = pNv->pI2CBus[i];
-
-	output->possible_crtcs = crtc_mask;
-	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Adding output %s\n", outputname);
-
+      nv_add_analog_output(pScrn, i);
     }
 
     for (i = 0 ; i < num_digital_outputs; i++) {
-	sprintf(outputname, "Digital-%d", i);
-	output = xf86OutputCreate (pScrn, &nv_digital_output_funcs, outputname);
-	if (!output)
-	    return;
-	nv_output = xnfcalloc (sizeof (NVOutputPrivateRec), 1);
-	if (!nv_output)
-	{
-	    xf86OutputDestroy (output);
-	    return;
-	}
-
-	output->driver_private = nv_output;
-	nv_output->type = OUTPUT_DIGITAL;
-
-	nv_output->ramdac = i;
-
-	nv_output->pDDCBus = pNv->pI2CBus[i];
-
-	output->possible_crtcs = crtc_mask;
-	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Adding output %s\n", outputname);
+      nv_add_digital_output(pScrn, i);
     }
-
 }
 
 void Nv40SetupOutputs(ScrnInfoPtr pScrn)
 {
+  unsigned char type, port, or;
+  NVPtr pNv = NVPTR(pScrn);
+  int i;
+
   /* we setup the outputs up from the BIOS table */
+  if (pNv->dcb_entries) {
+    for (i = 0 ; i < pNv->dcb_entries; i++) {
+      type = pNv->dcb_table[i] & 0xf;
+      port = (pNv->dcb_table[i] >> 4) & 0xf;
+      or = ffs((pNv->dcb_table[i] >> 24) & 0xf) - 1;
+     
+      if (type < 4)
+	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "DCB entry: %d: %08X type: %d, port %d:, or %d\n", i, pNv->dcb_table[i], type, port, or);
+      if (type < 4 && port != 0xf) {
+	switch(type) {
+	case 0: /* analog */
+	  nv_add_analog_output(pScrn, port);
+	  break;
+	case 2:
+	  nv_add_digital_output(pScrn, port);
+	default:
+	  break;
+	}
+      }
+    }
+  } else
+    Nv20SetupOutputs(pScrn);
 
 }
 
