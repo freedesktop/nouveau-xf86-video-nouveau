@@ -462,7 +462,7 @@ void nv_crtc_calc_state_ext(
             }
 
 
-	    CursorStart = pNv->Cursor->offset - pNv->VRAMPhysical;
+	    CursorStart = pNv->Cursor->offset;
 
             regp->CRTC[NV_VGA_CRTCX_CURCTL0] = 0x80 | (CursorStart >> 17);
             regp->CRTC[NV_VGA_CRTCX_CURCTL1] = (CursorStart >> 11) << 2;
@@ -1280,7 +1280,7 @@ NVCrtcSetBase (xf86CrtcPtr crtc, int x, int y)
     CARD32 start = 0;
     
     start += ((y * pScrn->displayWidth + x) * (pLayout->bitsPerPixel/8));
-    start += (pNv->FB->offset - pNv->VRAMPhysical);
+    start += pNv->FB->offset;
 
     nvWriteCRTC(pNv, nv_crtc->crtc, NV_CRTC_START, start);
 

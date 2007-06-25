@@ -48,6 +48,70 @@ typedef struct {
 	CARD16      io_flag_condition_offset;
 } bios_t;
 
+static Bool NVValidBios(ScrnInfoPtr pScrn, const unsigned char *data)
+{
+	/* check for BIOS signature */
+	if (!(data[0] == 0x55 && data[1] == 0xAA)) {
+		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+			   "...BIOS signature not found\n");
+		return FALSE;
+	}
+
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "...appears to be valid\n");
+	return TRUE;
+}
+
+static void NVDownloadBiosPROM(ScrnInfoPtr pScrn, unsigned char *data)
+{
+	NVPtr pNv = NVPTR(pScrn);
+	int i;
+
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "Attempting to locate BIOS image in PROM\n");
+
+	/* enable ROM access */
+	nvWriteMC(pNv, 0x1850, 0x0);
+	for (i=0; i<NV_PROM_SIZE; i++) {
+		/* according to nvclock, we need that to work around a 6600GT/6800LE bug */
+		data[i] = pNv->PROM[i];
+		data[i] = pNv->PROM[i];
+		data[i] = pNv->PROM[i];
+		data[i] = pNv->PROM[i];
+		data[i] = pNv->PROM[i];
+	}
+	/* disable ROM access */
+	nvWriteMC(pNv, 0x1850, 0x1);
+}
+
+static void NVDownloadBiosPRAMIN(ScrnInfoPtr pScrn, unsigned char *data)
+{
+	NVPtr pNv = NVPTR(pScrn);
+	const unsigned char *pramin = (void*)&pNv->REGS[0x00700000/4];
+
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "Attempting to locate BIOS image in PRAMIN\n");
+	memcpy(data, pramin, 65536);
+}
+
+static Bool NVDownloadBios(ScrnInfoPtr pScrn, bios_t *bios)
+{
+	NVPtr pNv = NVPTR(pScrn);
+
+	bios->data = xcalloc(1, 65536);
+
+	NVDownloadBiosPROM(pScrn, bios->data);
+	if (NVValidBios(pScrn, bios->data))
+		return TRUE;
+
+	NVDownloadBiosPRAMIN(pScrn, bios->data);
+	if (NVValidBios(pScrn, bios->data))
+		return TRUE;
+
+	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+		   "Failed to locate BIOS image\n");
+	xfree(bios->data);
+	return FALSE;
+}
 
 typedef struct {
 	char* name;
@@ -1589,36 +1653,17 @@ unsigned int NVParseBios(ScrnInfoPtr pScrn)
 	int i, ret;
 	pNv = NVPTR(pScrn);
 
-	bios.data=xalloc(NV_PROM_SIZE);
-
-	/* enable ROM access */
-	nvWriteMC(pNv, 0x1850, 0x0);
-	for(i=0;i<NV_PROM_SIZE;i++)
-	{
-		/* according to nvclock, we need that to work around a 6600GT/6800LE bug */
-		bios.data[i]=pNv->PROM[i];
-		bios.data[i]=pNv->PROM[i];
-		bios.data[i]=pNv->PROM[i];
-		bios.data[i]=pNv->PROM[i];
-		bios.data[i]=pNv->PROM[i];
-	}
-	/* disable ROM access */
-	nvWriteMC(pNv, 0x1850, 0x1);
-
-	/* check for BIOS signature */
-	if (!(bios.data[0] == 0x55 && bios.data[1] == 0xAA)) {
-		xf86DrvMsg(pScrn->scrnIndex, X_INFO,  "BIOS signature not found!\n");
-		xfree(bios.data);
+	if (!NVDownloadBios(pScrn, &bios)) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "No valid BIOS image found.\n");
 		return 0;
 	}
 
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO,  "BIOS signature found.\n");
-
 	/* check for known signatures */
-	if (bit_offset = findstr(&bios, bit_signature, sizeof(bit_signature))) {
+	if ((bit_offset = findstr(&bios, bit_signature, sizeof(bit_signature)))) {
 		xf86DrvMsg(pScrn->scrnIndex, X_INFO,  "BIT signature found.\n");
 		parse_bit_structure(pScrn, &bios, bit_offset + 4);
-	} else if (bit_offset = findstr(&bios, nv_signature, sizeof(nv_signature))) {
+	} else if ((bit_offset = findstr(&bios, nv_signature, sizeof(nv_signature)))) {
 		xf86DrvMsg(pScrn->scrnIndex, X_INFO,  "NV signature found.\n");
 		parse_pins_structure(pScrn, &bios, bit_offset);
 	} else {

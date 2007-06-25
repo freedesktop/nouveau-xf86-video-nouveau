@@ -67,7 +67,7 @@ enum DMAObjects {
 	NvMemFormat		= 0x80000018,
 	Nv3D			= 0x80000019,
 	NvDmaFB			= 0xD8000001,
-	NvDmaAGP		= 0xD8000002,
+	NvDmaTT			= 0xD8000002,
 	NvDmaNotifier0		= 0xD8000003
 };
 
@@ -93,14 +93,18 @@ enum DMASubchannel {
 	(pNv)->dmaBase[(pNv)->dmaCurrent++] = (data);       \
 } while(0)
 
-#define NVDmaFloat(pNv, data) do {      \
-	float f = (data);               \
-	NVDmaNext((pNv), *(CARD32*)&f); \
+#define NVDmaFloat(pNv, data) do { \
+	union {                    \
+		float v;           \
+		uint32_t u;        \
+	} c;                       \
+	c.v = (data);              \
+	NVDmaNext((pNv), c.u);     \
 } while(0)
 
 #define NVDmaStart(pNv, subchannel, tag, size) do {                     \
         if((pNv)->dmaFree <= (size))                                    \
-            NVDmaWait(pNv, size);                                       \
+            NVDmaWait(pScrn, size);                                     \
         NVDEBUG("NVDmaStart: subc=%d, cmd=%x, num=%d\n", (subchannel), (tag), (size)); \
         NVDmaNext(pNv, ((size) << 18) | ((subchannel) << 13) | (tag));  \
         (pNv)->dmaFree -= ((size) + 1);                                 \

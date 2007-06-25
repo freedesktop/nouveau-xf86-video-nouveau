@@ -23,8 +23,9 @@ void NVDmaKickoffCallback(NVPtr pNv)
  */
 #define SKIPS  8
 
-void NVDmaWait (NVPtr pNv, int size)
+void NVDmaWait (ScrnInfoPtr pScrn, int size)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	int t_start;
 	int dmaGet;
 
@@ -43,7 +44,7 @@ void NVDmaWait (NVPtr pNv, int size)
 						WRITE_PUT(pNv, SKIPS + 1);
 					do {
 						if (GetTimeInMillis() - t_start > 2000)
-							NVDoSync(pNv);
+							NVSync(pScrn);
 						dmaGet = READ_GET(pNv);
 					} while(dmaGet <= SKIPS);
 				}
@@ -55,7 +56,7 @@ void NVDmaWait (NVPtr pNv, int size)
 			pNv->dmaFree = dmaGet - pNv->dmaCurrent - 1;
 
 		if (GetTimeInMillis() - t_start > 2000)
-			NVDoSync(pNv);
+			NVSync(pScrn);
 	}
 }
 
@@ -70,34 +71,51 @@ static void NVDumpLockupInfo(NVPtr pNv)
 	xf86DrvMsg(0, X_INFO, "End of fifo dump\n");
 }
 
-void NVDoSync(NVPtr pNv)
+static void
+NVLockedUp(ScrnInfoPtr pScrn)
 {
-	int t_start, timeout = 2000;
+	NVPtr pNv = NVPTR(pScrn);
 
-	if(pNv->DMAKickoffCallback)
-		(*pNv->DMAKickoffCallback)(pNv);
+	/* avoid re-entering FatalError on shutdown */
+	if (pNv->LockedUp)
+		return;
+	pNv->LockedUp = TRUE;
 
-	t_start = GetTimeInMillis();
-	/* Wait for entire FIFO to be processed */
-	while((GetTimeInMillis() - t_start) < timeout && (READ_GET(pNv) != pNv->dmaPut));
-	/* Wait for PGRAPH to go completely idle */
-	while((GetTimeInMillis() - t_start) < timeout && pNv->PGRAPH[NV_PGRAPH_STATUS/4]);
+	NVDumpLockupInfo(pNv);
 
-	if ((GetTimeInMillis() - t_start) >= timeout) {
-		if (pNv->LockedUp)
-			return;
-		NVDumpLockupInfo(pNv);
-		pNv->LockedUp = TRUE; /* avoid re-entering FatalError on shutdown */
-		FatalError("DMA queue hang: dmaPut=%x, current=%x, status=%x\n",
-				pNv->dmaPut, READ_GET(pNv), pNv->PGRAPH[NV_PGRAPH_STATUS/4]);
-	}
+	FatalError("DMA queue hang: dmaPut=%x, current=%x, status=%x\n",
+		   pNv->dmaPut, READ_GET(pNv), pNv->PGRAPH[NV_PGRAPH_STATUS/4]);
 }
 
 void NVSync(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
-	if(pNv->NoAccel) return;
-	NVDoSync(pNv);
+	int t_start, timeout = 2000;
+
+	if(pNv->NoAccel)
+		return;
+
+	if(pNv->DMAKickoffCallback)
+		(*pNv->DMAKickoffCallback)(pNv);
+
+	/* Wait for entire FIFO to be processed */
+	t_start = GetTimeInMillis();
+	while((GetTimeInMillis() - t_start) < timeout &&
+			(READ_GET(pNv) != pNv->dmaPut));
+	if ((GetTimeInMillis() - t_start) >= timeout) {
+		NVLockedUp(pScrn);
+		return;
+	}
+
+	/* Wait for channel to go completely idle */
+	NVNotifierReset(pScrn, pNv->Notifier0);
+	NVDmaStart(pNv, NvSubImageBlit, 0x104, 1);
+	NVDmaNext (pNv, 0);
+	NVDmaStart(pNv, NvSubImageBlit, 0x100, 1);
+	NVDmaNext (pNv, 0);
+	NVDmaKickoff(pNv);
+	if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, timeout))
+		NVLockedUp(pScrn);
 }
 
 void NVResetGraphics(ScrnInfoPtr pScrn)
@@ -116,7 +134,7 @@ void NVResetGraphics(ScrnInfoPtr pScrn)
 
 	/* assert there's enough room for the skips */
 	if(pNv->dmaFree <= SKIPS)
-		NVDmaWait(pNv, SKIPS); 
+		NVDmaWait(pScrn, SKIPS); 
 	for (i=0; i<SKIPS; i++) {
 		NVDmaNext(pNv,0);
 		pNv->dmaBase[i]=0;
@@ -170,8 +188,8 @@ void NVResetGraphics(ScrnInfoPtr pScrn)
 	NVDmaStart(pNv, NvSubContextSurfaces, SURFACE_FORMAT, 4);
 	NVDmaNext (pNv, surfaceFormat);
 	NVDmaNext (pNv, pitch | (pitch << 16));
-	NVDmaNext (pNv, (CARD32)(pNv->FB->offset - pNv->VRAMPhysical));
-	NVDmaNext (pNv, (CARD32)(pNv->FB->offset - pNv->VRAMPhysical));
+	NVDmaNext (pNv, (uint32_t)pNv->FB->offset);
+	NVDmaNext (pNv, (uint32_t)pNv->FB->offset);
 
 	NVDmaStart(pNv, NvSubImagePattern, PATTERN_FORMAT, 1);
 	NVDmaNext (pNv, patternFormat);
@@ -191,143 +209,15 @@ void NVResetGraphics(ScrnInfoPtr pScrn)
 	/*NVDmaKickoff(pNv);*/
 }
 
-Bool NVDmaCreateDMAObject(NVPtr pNv, uint32_t handle, int class,
-				     int target,
-				     CARD32 offset, CARD32 size, int access)
-{
-	drm_nouveau_dma_object_init_t dma;
-	int ret;
-
-	dma.channel = pNv->fifo.channel;
-	dma.handle  = handle;
-	dma.class   = class;
-	dma.access  = access;
-	dma.target  = target;
-	dma.size    = size;
-	dma.offset  = offset;
-	ret = drmCommandWrite(pNv->drm_fd, DRM_NOUVEAU_DMA_OBJECT_INIT,
-					   &dma, sizeof(dma));
-
-	return ret == 0;
-}
-
-Bool NVDmaCreateDMAObjectFromMem(NVPtr pNv, uint32_t handle, int class,
-					    NVAllocRec *mem, int access)
-{
-	uint32_t offset = mem->offset;
-	int      target;
-
-	target = mem->type & (NOUVEAU_MEM_FB | NOUVEAU_MEM_AGP);
-	if (!target)
-		return FALSE;
-
-	if (target & NOUVEAU_MEM_FB)
-		offset -= pNv->VRAMPhysical;
-	else if (target & NOUVEAU_MEM_AGP)
-		offset -= pNv->AGPPhysical;
-
-	return NVDmaCreateDMAObject(pNv, handle, class, target,
-					 offset, mem->size, access);
-}
-
-/*
-A DMA notifier is a DMA object that references a small (32 byte it
-seems, we use 256 for saftey) memory area that will be used by the HW to give feedback
-about a DMA operation.
-*/
-NVAllocRec *NVDmaCreateNotifier(NVPtr pNv, int handle)
-{
-	NVAllocRec *notifier = NULL;
-
-#ifndef __powerpc__
-	notifier = NVAllocateMemory(pNv, NOUVEAU_MEM_AGP |
-					 NOUVEAU_MEM_FB_ACCEPTABLE,
-					 256);
-#else
-	notifier = NVAllocateMemory(pNv, NOUVEAU_MEM_FB, 256);
-#endif
-
-	if (!notifier)
-		return NULL;
-
-	if (!NVDmaCreateDMAObjectFromMem(pNv, handle, NV_DMA_IN_MEMORY,
-					      notifier,
-					      NOUVEAU_MEM_ACCESS_RW)) {
-		NVFreeMemory(pNv, notifier);
-		return NULL;
-	}
-
-	return notifier;
-}
-
-/* How do we wait for DMA completion (by notifiers) ?
- *
- * Either repeatedly read the notifier address and wait until it changes,
- * or enable a 'wakeup' interrupt by writing NOTIFY_WRITE_LE_AWAKEN into
- * the 'notify' field of the object in the channel.  My guess is that 
- * this causes an interrupt in PGRAPH/NOTIFY as soon as the transfer is
- * completed.  Clients probably can use poll on the nv* devices to get this 
- * event.  All this is a guess.  I don't know any details, and I have not
- * tested is.  Also, I have no idea how the 'nvdriver' reacts if it gets 
- * notify events that are not registered.
- *
- * Writing NV_NOTIFY_WRITE_LE_AWAKEN into the 'Notify' field of an object
- * in a channel really causes an interrupt in the PGRAPH engine.  Thus
- * we can determine whether a DMA transfer has finished in the interrupt
- * handler.
- * 
- * We can't use interrupts in user land, so we do the simple polling approach.
- * The method returns FALSE in case of an error.
- */
-Bool NVDmaWaitForNotifier(NVPtr pNv, void *notifier)
-{
-	int t_start, timeout = 0;
-	volatile CARD32 *n;
-
-	n = (volatile CARD32 *)notifier;
-	NVDEBUG("NVDmaWaitForNotifier @%p", n);
-	t_start = GetTimeInMillis();
-	while (1) {
-		CARD32 a = n[0];
-		CARD32 b = n[1];
-		CARD32 c = n[2];
-		CARD32 status = n[3];
-		NVDEBUG("status: n[0]=%x, n[1]=%x, n[2]=%x, n[3]=%x\n", a, b, c, status);
-		NVDEBUG("status: GET: 0x%08x\n", READ_GET(pNv));
-
-		if (GetTimeInMillis() - t_start >= 2000) {
-			/* We've timed out, call NVSync() to detect lockups */
-			if (timeout++ == 0) {
-				NVDoSync(pNv);
-				/* If we're still here, wait another second for notifier.. */
-				t_start = GetTimeInMillis() + 1000;
-				break;
-			}
-			/* Still haven't recieved notification, log error */
-			ErrorF("Notifier timeout\n");
-			return FALSE;
-		}
-
-		if (status == 0xffffffff)
-			continue;
-		if (!status)
-			break;
-		if (status & 0xffff)
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
 Bool NVDmaCreateContextObject(NVPtr pNv, int handle, int class)
 {
-	drm_nouveau_object_init_t cto;
+	drm_nouveau_grobj_alloc_t cto;
 	int ret;
 
 	cto.channel = pNv->fifo.channel;
 	cto.handle  = handle;
 	cto.class   = class;
-	ret = drmCommandWrite(pNv->drm_fd, DRM_NOUVEAU_OBJECT_INIT,
+	ret = drmCommandWrite(pNv->drm_fd, DRM_NOUVEAU_GROBJ_ALLOC,
 					   &cto, sizeof(cto));
 	return ret == 0;
 }
@@ -366,32 +256,60 @@ static void NVInitDmaCB(ScrnInfoPtr pScrn)
 Bool NVInitDma(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
-	int i;
+	int i, ret;
 
 	NVInitDmaCB(pScrn);
 
-	if(pNv->NoAccel) return TRUE;
+	if (pNv->NoAccel)
+		return TRUE;
 
-	if (drmCommandWriteRead(pNv->drm_fd, DRM_NOUVEAU_FIFO_ALLOC, &pNv->fifo, sizeof(pNv->fifo)) != 0) {
-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Could not initialise kernel module\n");
+	pNv->fifo.fb_ctxdma_handle = NvDmaFB;
+	pNv->fifo.tt_ctxdma_handle = NvDmaTT;
+	ret = drmCommandWriteRead(pNv->drm_fd, DRM_NOUVEAU_FIFO_ALLOC,
+				  &pNv->fifo, sizeof(pNv->fifo));
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Could not allocate GPU channel: %d\n", ret);
 		return FALSE;
 	}
 
-	if (drmMap(pNv->drm_fd, pNv->fifo.cmdbuf, pNv->fifo.cmdbuf_size, (drmAddressPtr)&pNv->dmaBase)) {
-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Failed to map DMA command buffer\n");
+	ret = drmMap(pNv->drm_fd, pNv->fifo.cmdbuf, pNv->fifo.cmdbuf_size,
+		     (drmAddressPtr)&pNv->dmaBase);
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Failed to map DMA push buffer: %d\n", ret);
 		return FALSE;
 	}
 
-	if (drmMap(pNv->drm_fd, pNv->fifo.ctrl, pNv->fifo.ctrl_size, (drmAddressPtr)&pNv->FIFO)) {
-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Failed to map FIFO control regs\n");
+	ret = drmMap(pNv->drm_fd, pNv->fifo.ctrl, pNv->fifo.ctrl_size,
+		     (drmAddressPtr)&pNv->FIFO);
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Failed to map FIFO control regs: %d\n", ret);
 		return FALSE;
 	}
 
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "Using FIFO channel %d\n", pNv->fifo.channel);
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "  Control registers : %p (0x%08x)\n", pNv->FIFO, pNv->fifo.ctrl);
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "  DMA command buffer: %p (0x%08x)\n", pNv->dmaBase, pNv->fifo.cmdbuf);
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "  DMA cmdbuf length : %d KiB\n", pNv->fifo.cmdbuf_size / 1024);
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "  DMA base PUT      : 0x%08x\n", pNv->fifo.put_base);
+	ret = drmMap(pNv->drm_fd, pNv->fifo.notifier, pNv->fifo.notifier_size,
+		     (drmAddressPtr)&pNv->NotifierBlock);
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Failed to map notifier block: %d\n", ret);
+		return FALSE;
+	}
+
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "Using FIFO channel %d\n", pNv->fifo.channel);
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "  Control registers : %p (0x%08x)\n",
+		   pNv->FIFO, pNv->fifo.ctrl);
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "  DMA command buffer: %p (0x%08x)\n",
+		   pNv->dmaBase, pNv->fifo.cmdbuf);
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "  DMA cmdbuf length : %d KiB\n",
+		   pNv->fifo.cmdbuf_size / 1024);
+	xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+		   "  DMA base PUT      : 0x%08x\n", pNv->fifo.put_base);
 
 	pNv->dmaPut = pNv->dmaCurrent = READ_GET(pNv);
 	pNv->dmaMax = (pNv->fifo.cmdbuf_size >> 2) - 1;

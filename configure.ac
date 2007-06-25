@@ -67,7 +67,7 @@ XORG_DRIVER_CHECK_EXT(XV, videoproto)
 XORG_DRIVER_CHECK_EXT(DPMSExtension, xextproto)
 
 # Checks for pkg-config packages
-PKG_CHECK_MODULES(XORG, [xorg-server >= 1.0.99.901] xproto fontsproto libdrm xf86driproto $REQUIRED_MODULES)
+PKG_CHECK_MODULES(XORG, [xorg-server >= 1.3] xproto fontsproto libdrm xf86driproto $REQUIRED_MODULES)
 sdkdir=$(pkg-config --variable=sdkdir xorg-server)
 
 # Checks for libraries.
@@ -76,7 +76,7 @@ sdkdir=$(pkg-config --variable=sdkdir xorg-server)
 AC_HEADER_STDC
 
 # Use -Wall all the time
-CFLAGS=-Wall
+CFLAGS="$CFLAGS -Wall"
 AC_SUBST([CFLAGS])
 
 AC_SUBST([XORG_CFLAGS])

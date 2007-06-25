@@ -1,8 +1,9 @@
 #include "nv_include.h"
 
 static Bool
-NVAccelInitNullObject(NVPtr pNv)
+NVAccelInitNullObject(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 
 	if (!have_object) {
@@ -15,69 +16,32 @@ NVAccelInitNullObject(NVPtr pNv)
 	return TRUE;
 }
 
-static Bool
-NVAccelInitDmaFB(NVPtr pNv)
-{
-	static int have_object = FALSE;
-
-	if (!have_object) {
-		if (!NVDmaCreateDMAObject(pNv, NvDmaFB, NV_DMA_IN_MEMORY,
-					  NOUVEAU_MEM_FB, 0,
-					  pNv->VRAMSize,
-					  NOUVEAU_MEM_ACCESS_RW))
-				return FALSE;
-		have_object = TRUE;
-	}
-
-	return TRUE;
-}
-
 uint32_t
-NVAccelGetPixmapOffset(NVPtr pNv, PixmapPtr pPix)
+NVAccelGetPixmapOffset(PixmapPtr pPix)
 {
+	ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
+	NVPtr pNv = NVPTR(pScrn);
 	CARD32 offset;
 
 	if (pPix->drawable.type == DRAWABLE_WINDOW) {
-		offset = pNv->FB->offset - pNv->VRAMPhysical;
+		offset = pNv->FB->offset;
 	} else {
 		offset  = (uint32_t)((unsigned long)pPix->devPrivate.ptr -
 				(unsigned long)pNv->FB->map);
-		offset += pNv->FB->offset - pNv->VRAMPhysical;
+		offset += pNv->FB->offset;
 	}
 
 	return offset;
 }
 
 static Bool
-NVAccelInitDmaAGP(NVPtr pNv)
+NVAccelInitDmaNotifier0(ScrnInfoPtr pScrn)
 {
-	static int have_object = FALSE;
-
-	if (!pNv->AGPSize)
-		return TRUE;
-
-	if (!have_object) {
-		if (!NVDmaCreateDMAObject(pNv, NvDmaAGP, NV_DMA_IN_MEMORY,
-					  NOUVEAU_MEM_AGP, 0,
-					  pNv->AGPSize,
-					  NOUVEAU_MEM_ACCESS_RW)) {
-			ErrorF("Couldn't create AGP object, disabling AGP\n");
-			NVFreeMemory(pNv, pNv->AGPScratch);
-			pNv->AGPScratch = NULL;
-		}
-		have_object = TRUE;
-	}
-
-	return TRUE;
-}
-
-static Bool
-NVAccelInitDmaNotifier0(NVPtr pNv)
-{
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 
 	if (!have_object) {
-		pNv->Notifier0 = NVDmaCreateNotifier(pNv, NvDmaNotifier0);
+		pNv->Notifier0 = NVNotifierAlloc(pScrn, NvDmaNotifier0);
 		if (!pNv->Notifier0)
 			return FALSE;
 		have_object = TRUE;
@@ -88,8 +52,9 @@ NVAccelInitDmaNotifier0(NVPtr pNv)
 
 /* FLAGS_ROP_AND, DmaFB, DmaFB, 0 */
 static Bool
-NVAccelInitContextSurfaces(NVPtr pNv)
+NVAccelInitContextSurfaces(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -160,22 +125,26 @@ NVAccelGetCtxSurf2DFormatFromPicture(PicturePtr pPict, int *fmt_ret)
 }
 
 Bool
-NVAccelSetCtxSurf2D(NVPtr pNv, PixmapPtr psPix, PixmapPtr pdPix, int format)
+NVAccelSetCtxSurf2D(PixmapPtr psPix, PixmapPtr pdPix, int format)
 {
+	ScrnInfoPtr pScrn = xf86Screens[psPix->drawable.pScreen->myNum];
+	NVPtr pNv = NVPTR(pScrn);
+
 	NVDmaStart(pNv, NvSubContextSurfaces, SURFACE_FORMAT, 4);
 	NVDmaNext (pNv, format);
 	NVDmaNext (pNv, ((uint32_t)exaGetPixmapPitch(pdPix) << 16) |
 			 (uint32_t)exaGetPixmapPitch(psPix));
-	NVDmaNext (pNv, NVAccelGetPixmapOffset(pNv, psPix));
-	NVDmaNext (pNv, NVAccelGetPixmapOffset(pNv, pdPix));
+	NVDmaNext (pNv, NVAccelGetPixmapOffset(psPix));
+	NVDmaNext (pNv, NVAccelGetPixmapOffset(pdPix));
 
 	return TRUE;
 }
 
 /* FLAGS_ROP_AND|FLAGS_MONO, 0, 0, 0 */
 static Bool
-NVAccelInitImagePattern(NVPtr pNv)
+NVAccelInitImagePattern(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -206,8 +175,9 @@ NVAccelInitImagePattern(NVPtr pNv)
 
 /* FLAGS_ROP_AND, 0, 0, 0 */
 static Bool
-NVAccelInitRasterOp(NVPtr pNv)
+NVAccelInitRasterOp(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -228,8 +198,9 @@ NVAccelInitRasterOp(NVPtr pNv)
 
 /* FLAGS_ROP_AND | FLAGS_MONO, 0, 0, 0 */
 static Bool
-NVAccelInitRectangle(NVPtr pNv)
+NVAccelInitRectangle(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -262,8 +233,9 @@ NVAccelInitRectangle(NVPtr pNv)
 
 /* FLAGS_ROP_AND, DmaFB, DmaFB, 0 */
 static Bool
-NVAccelInitImageBlit(NVPtr pNv)
+NVAccelInitImageBlit(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -294,8 +266,9 @@ NVAccelInitImageBlit(NVPtr pNv)
 
 /* FLAGS_SRCCOPY, DmaFB, DmaFB, 0 */
 static Bool
-NVAccelInitScaledImage(NVPtr pNv)
+NVAccelInitScaledImage(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -347,8 +320,9 @@ NVAccelInitScaledImage(NVPtr pNv)
 
 /* FLAGS_NONE, 0, 0, 0 */
 static Bool
-NVAccelInitClipRectangle(NVPtr pNv)
+NVAccelInitClipRectangle(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	int class = NV01_CONTEXT_CLIP_RECTANGLE;
 
@@ -367,8 +341,9 @@ NVAccelInitClipRectangle(NVPtr pNv)
 
 /* FLAGS_ROP_AND | FLAGS_CLIP_ENABLE, 0, 0, 0 */
 static Bool
-NVAccelInitSolidLine(NVPtr pNv)
+NVAccelInitSolidLine(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	int class = NV04_SOLID_LINE;
 
@@ -393,8 +368,9 @@ NVAccelInitSolidLine(NVPtr pNv)
 
 /* FLAGS_NONE, NvDmaFB, NvDmaAGP, NvDmaNotifier0 */
 static Bool
-NVAccelInitMemFormat(NVPtr pNv)
+NVAccelInitMemFormat(ScrnInfoPtr pScrn)
 {
+	NVPtr pNv = NVPTR(pScrn);
 	static int have_object = FALSE;
 	uint32_t   class;
 
@@ -420,7 +396,7 @@ NVAccelInitMemFormat(NVPtr pNv)
 }
 
 #define INIT_CONTEXT_OBJECT(name) do {                                        \
-	ret = NVAccelInit##name(pNv);                                         \
+	ret = NVAccelInit##name(pScrn);                                       \
 	if (!ret) {                                                           \
 		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,                         \
 			   "Failed to initialise context object: "#name       \
@@ -437,8 +413,6 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 	if(pNv->NoAccel) return TRUE;
 
 	INIT_CONTEXT_OBJECT(NullObject);
-	INIT_CONTEXT_OBJECT(DmaFB);
-	INIT_CONTEXT_OBJECT(DmaAGP);
 	INIT_CONTEXT_OBJECT(DmaNotifier0);
 
 	INIT_CONTEXT_OBJECT(ContextSurfaces);
@@ -454,6 +428,15 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 
 	/* EXA-only */
 	INIT_CONTEXT_OBJECT(MemFormat);
+
+	/* 3D init */
+	switch (pNv->Architecture) {
+	case NV_ARCH_40:
+		INIT_CONTEXT_OBJECT(NV40TCL);
+		break;
+	default:
+		break;
+	}
 
 	return TRUE;
 }

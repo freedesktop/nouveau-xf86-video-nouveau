@@ -49,12 +49,14 @@
 
 #include <sys/time.h>
 
-static void setM2MFDirection(NVPtr pNv, int dir)
+static void setM2MFDirection(ScrnInfoPtr pScrn, int dir)
 {
+	NVPtr pNv = NVPTR(pScrn);
+
 	if (pNv->M2MFDirection != dir) {
 		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_DMA_OBJECT_IN, 2);
-		NVDmaNext (pNv, dir ? NvDmaAGP : NvDmaFB);
-		NVDmaNext (pNv, dir ? NvDmaFB : NvDmaAGP);
+		NVDmaNext (pNv, dir ? NvDmaTT : NvDmaFB);
+		NVDmaNext (pNv, dir ? NvDmaFB : NvDmaTT);
 		pNv->M2MFDirection = dir;
 	}
 }
@@ -112,7 +114,7 @@ static Bool NVExaPrepareSolid(PixmapPtr pPixmap,
 	if (fmt == SURFACE_FORMAT_A8R8G8B8)
 		fmt = 0xb;
 
-	if (!NVAccelSetCtxSurf2D(pNv, pPixmap, pPixmap, fmt))
+	if (!NVAccelSetCtxSurf2D(pPixmap, pPixmap, fmt))
 		return FALSE;
 
 	NVDmaStart(pNv, NvSubRectangle, RECT_FORMAT, 1);
@@ -172,7 +174,7 @@ static Bool NVExaPrepareCopy(PixmapPtr pSrcPixmap,
 
 	if (!NVAccelGetCtxSurf2DFormatFromPixmap(pDstPixmap, &fmt))
 		return FALSE;
-	if (!NVAccelSetCtxSurf2D(pNv, pSrcPixmap, pDstPixmap, fmt))
+	if (!NVAccelSetCtxSurf2D(pSrcPixmap, pDstPixmap, fmt))
 		return FALSE;
 
 	pNv->DMAKickoffCallback = NVDmaKickoffCallback;
@@ -269,13 +271,13 @@ static Bool NVDownloadFromScreen(PixmapPtr pSrc,
 	Bool ret = TRUE;
 
 	pitch_in = exaGetPixmapPitch(pSrc);
-	offset_in = NVAccelGetPixmapOffset(pNv, pSrc);
+	offset_in = NVAccelGetPixmapOffset(pSrc);
 	offset_in += y*pitch_in;
 	offset_in += x * (pSrc->drawable.bitsPerPixel >> 3);
 	max_lines = 65536/dst_pitch + 1;
 	line_length = w * (pSrc->drawable.bitsPerPixel >> 3);
 
-	setM2MFDirection(pNv, 0);
+	setM2MFDirection(pScrn, 0);
 
 	NVDEBUG("NVDownloadFromScreen: x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
 	NVDEBUG("    pitch_in=%x dst_pitch=%x offset_in=%x",
@@ -285,13 +287,13 @@ static Bool NVDownloadFromScreen(PixmapPtr pSrc,
 		NVDEBUG("     max_lines=%d, h=%d\n", max_lines, h);
 
 		/* reset the notification object */
-		memset(pNv->Notifier0->map, 0xff, pNv->Notifier0->size);
+		NVNotifierReset(pScrn, pNv->Notifier0);
 		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_NOTIFY, 1);
 		NVDmaNext (pNv, 0);
 
 		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_OFFSET_IN, 8);
 		NVDmaNext (pNv, offset_in);
-		NVDmaNext (pNv, (uint32_t)(pNv->AGPScratch->offset - pNv->AGPPhysical));
+		NVDmaNext (pNv, (uint32_t)pNv->AGPScratch->offset);
 		NVDmaNext (pNv, pitch_in);
 		NVDmaNext (pNv, dst_pitch);
 		NVDmaNext (pNv, line_length);
@@ -300,7 +302,7 @@ static Bool NVDownloadFromScreen(PixmapPtr pSrc,
 		NVDmaNext (pNv, 0);
 
 		NVDmaKickoff(pNv);
-		if (!NVDmaWaitForNotifier(pNv, pNv->Notifier0->map)) {
+		if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, 2000)) {
 			ret = FALSE;
 			goto error;
 		}
@@ -316,64 +318,85 @@ error:
 	return ret;
 }
 
+Bool
+NVAccelUploadM2MF(ScrnInfoPtr pScrn, uint64_t dst_offset, const char *src,
+				     int dst_pitch, int src_pitch,
+				     int line_len, int line_count)
+{
+	NVPtr pNv = NVPTR(pScrn);
+
+	setM2MFDirection(pScrn, 1);
+
+	while (line_count) {
+		char *dst = pNv->AGPScratch->map;
+		int lc, i;
+
+		/* Determine max amount of data we can DMA at once */
+		if (line_count * line_len <= pNv->AGPScratch->size) {
+			lc = line_count;
+		} else {
+			lc = pNv->AGPScratch->size / line_len;
+			if (lc > line_count)
+				lc = line_count;
+		}
+		/*XXX: and hw limitations? */
+
+		/* Upload to GART */
+		if (src_pitch == line_len) {
+			memcpy(dst, src, src_pitch * lc);
+		} else {
+			for (i = 0; i < lc; i++) {
+				memcpy(dst, src, line_len);
+				src += src_pitch;
+				dst += line_len;
+			}
+		}
+
+		/* DMA to VRAM */
+		NVNotifierReset(pScrn, pNv->Notifier0);
+		NVDmaStart(pNv, NvSubMemFormat,
+				NV_MEMORY_TO_MEMORY_FORMAT_NOTIFY, 1);
+		NVDmaNext (pNv, 0);
+
+		NVDmaStart(pNv, NvSubMemFormat,
+				NV_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
+		NVDmaNext (pNv, (uint32_t)pNv->AGPScratch->offset);
+		NVDmaNext (pNv, (uint32_t)dst_offset);
+		NVDmaNext (pNv, line_len);
+		NVDmaNext (pNv, dst_pitch);
+		NVDmaNext (pNv, line_len);
+		NVDmaNext (pNv, lc);
+		NVDmaNext (pNv, (1<<8)|1);
+		NVDmaNext (pNv, 0);
+
+		NVDmaKickoff(pNv);
+		if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, 0))
+			return FALSE;
+
+		line_count -= lc;
+	}
+
+	return TRUE;
+}
+
 static Bool NVUploadToScreen(PixmapPtr pDst,
 			     int x, int y, int w, int h,
 			     char *src, int src_pitch)
 {
 	ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
-	CARD32 offset_out, pitch_out, max_lines, line_length;
-	Bool ret = TRUE;
-#if 0
-	x = 0;
-	y = 0;
-	w = pDst->drawable.width;
-	h = pDst->drawable.height;
-#endif
+	int dst_offset, dst_pitch, bpp;
+	Bool ret;
 
-	pitch_out = exaGetPixmapPitch(pDst);
-	offset_out = NVAccelGetPixmapOffset(pNv, pDst);
-	offset_out += y*pitch_out;
-	offset_out += x * (pDst->drawable.bitsPerPixel >> 3);
+	dst_offset = NVAccelGetPixmapOffset(pDst);
+	dst_pitch  = exaGetPixmapPitch(pDst);
+	bpp = pDst->drawable.bitsPerPixel >> 3;
 
-	max_lines = 65536/src_pitch + 1;
-	line_length = w * (pDst->drawable.bitsPerPixel >> 3);
-
-	setM2MFDirection(pNv, 1);
-
-	NVDEBUG("NVUploadToScreen: x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
-	while (h > 0) {
-		NVDEBUG("     max_lines=%d, h=%d\n", max_lines, h);
-		int nlines = h > max_lines ? max_lines : h;
-
-		/* reset the notification object */
-		memset(pNv->Notifier0->map, 0xff, pNv->Notifier0->size);
-		memcpy(pNv->AGPScratch->map, src, nlines*src_pitch);
-		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_NOTIFY, 1);
-		NVDmaNext (pNv, 0);
-
-		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_OFFSET_IN, 8);
-		NVDmaNext (pNv, (uint32_t)(pNv->AGPScratch->offset - pNv->AGPPhysical));
-		NVDmaNext (pNv, offset_out);
-		NVDmaNext (pNv, src_pitch);
-		NVDmaNext (pNv, pitch_out);
-		NVDmaNext (pNv, line_length);
-		NVDmaNext (pNv, nlines);
-		NVDmaNext (pNv, 0x101);
-		NVDmaNext (pNv, 0);
-
-		NVDmaKickoff(pNv);
-		if (!NVDmaWaitForNotifier(pNv, pNv->Notifier0->map)) {
-			ret = FALSE;
-			goto error;
-		}
-
-		h -= nlines;
-		offset_out += nlines*pitch_out;
-		src += nlines*src_pitch;
+	if (1) {
+		dst_offset += (y * dst_pitch) + (x * bpp);
+		ret = NVAccelUploadM2MF(pScrn, dst_offset, src,
+					       dst_pitch, src_pitch,
+					       w * bpp, h);
 	}
-
-error:
 	exaMarkSync(pDst->drawable.pScreen);
 	return ret;
 }
@@ -436,7 +459,7 @@ static Bool NVPrepareComposite(int	  op,
 
 	if (!NVAccelGetCtxSurf2DFormatFromPicture(pDstPicture, &dstFormat))
 		return FALSE;
-	if (!NVAccelSetCtxSurf2D(pNv, pDst, pDst, dstFormat))
+	if (!NVAccelSetCtxSurf2D(pDst, pDst, dstFormat))
 		return FALSE;
 
 	NVDmaStart(pNv, NvSubScaledImage, STRETCH_BLIT_FORMAT, 2);
@@ -449,7 +472,7 @@ static Bool NVPrepareComposite(int	  op,
 	src_pitch  = exaGetPixmapPitch(pSrc)
 		| (STRETCH_BLIT_SRC_FORMAT_ORIGIN_CORNER << 16)
 		| (STRETCH_BLIT_SRC_FORMAT_FILTER_POINT_SAMPLE << 24);
-	src_offset = NVAccelGetPixmapOffset(pNv, pSrc);
+	src_offset = NVAccelGetPixmapOffset(pSrc);
 
 	return TRUE;
 }
@@ -542,17 +565,21 @@ Bool NVExaInit(ScreenPtr pScreen)
 	pNv->EXADriverPtr->Solid = NVExaSolid;
 	pNv->EXADriverPtr->DoneSolid = NVExaDoneSolid;
 
-	/*darktama: Hard-disabled these for now, I get lockups often when
-	 *          starting e17 with them enabled.
-	 *marcheu:  Doesn't crash for me... was it related to the setup being
-	 *          called twice before ?
-	 */
-	if (pNv->BlendingPossible) {
-		/* install composite hooks */
-		pNv->EXADriverPtr->CheckComposite = NVCheckComposite;
+	switch (pNv->Architecture) {
+	case NV_ARCH_40:
+		pNv->EXADriverPtr->CheckComposite   = NV30EXACheckComposite;
+		pNv->EXADriverPtr->PrepareComposite = NV30EXAPrepareComposite;
+		pNv->EXADriverPtr->Composite        = NV30EXAComposite;
+		pNv->EXADriverPtr->DoneComposite    = NV30EXADoneComposite;
+		break;
+	default:
+		if (!pNv->BlendingPossible)
+			break;
+		pNv->EXADriverPtr->CheckComposite   = NVCheckComposite;
 		pNv->EXADriverPtr->PrepareComposite = NVPrepareComposite;
-		pNv->EXADriverPtr->Composite = NVComposite;
-		pNv->EXADriverPtr->DoneComposite = NVDoneComposite;
+		pNv->EXADriverPtr->Composite        = NVComposite;
+		pNv->EXADriverPtr->DoneComposite    = NVDoneComposite;
+		break;
 	}
 
 	/* If we're going to try and use 3D, let the card-specific function

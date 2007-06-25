@@ -32,6 +32,11 @@ NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size)
 		return NULL;
 	}
 
+	if (mem->type & NOUVEAU_MEM_FB)
+		mem->offset -= pNv->VRAMPhysical;
+	else if (mem->type & NOUVEAU_MEM_AGP)
+		mem->offset -= pNv->AGPPhysical;
+
 	return mem;
 }
 
@@ -49,6 +54,10 @@ void NVFreeMemory(NVPtr pNv, NVAllocRec *mem)
 
 		memfree.flags = mem->type;
 		memfree.region_offset = mem->offset;
+		if (mem->type & NOUVEAU_MEM_FB)
+			memfree.region_offset += pNv->VRAMPhysical;
+		else if (mem->type & NOUVEAU_MEM_AGP)
+			memfree.region_offset += pNv->AGPPhysical;
 		if (drmCommandWriteRead(pNv->drm_fd,
 					DRM_NOUVEAU_MEM_FREE, &memfree,
 					sizeof(memfree))) {

@@ -5,10 +5,10 @@
 
 /* in nv_accel_common.c */
 Bool NVAccelCommonInit(ScrnInfoPtr pScrn);
-uint32_t NVAccelGetPixmapOffset(NVPtr pNv, PixmapPtr pPix);
+uint32_t NVAccelGetPixmapOffset(PixmapPtr pPix);
 Bool NVAccelGetCtxSurf2DFormatFromPixmap(PixmapPtr pPix, int *fmt_ret);
 Bool NVAccelGetCtxSurf2DFormatFromPicture(PicturePtr pPix, int *fmt_ret);
-Bool NVAccelSetCtxSurf2D(NVPtr pNv, PixmapPtr psPix, PixmapPtr pdPix, int fmt);
+Bool NVAccelSetCtxSurf2D(PixmapPtr psPix, PixmapPtr pdPix, int fmt);
 
 /* in nv_driver.c */
 Bool   NVSwitchMode(int scrnIndex, DisplayModePtr mode, int flags);
@@ -18,6 +18,16 @@ Bool   NVI2CInit(ScrnInfoPtr pScrn);
 /* in nv_mem.c */
 NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size);
 void        NVFreeMemory(NVPtr pNv, NVAllocRec *mem);
+
+/* in nv_notifier.c */
+drm_nouveau_notifier_alloc_t *NVNotifierAlloc(ScrnInfoPtr, uint32_t handle);
+void        NVNotifierDestroy(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
+void        NVNotifierReset(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
+uint32_t    NVNotifierStatus(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
+uint32_t    NVNotifierErrorCode(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
+uint32_t    NVNotifierReturnVal(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
+Bool        NVNotifierWaitStatus(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *,
+				 uint32_t status, uint32_t timeout);
 
 /* in nv_dri.c */
 unsigned int NVDRMGetParam(NVPtr pNv, unsigned int param);
@@ -41,22 +51,15 @@ Bool   NVCursorInit(ScreenPtr pScreen);
 /* in nv_dma.c */
 void  NVDmaKickoff(NVPtr pNv);
 void  NVDmaKickoffCallback(NVPtr pNv);
-void  NVDmaWait(NVPtr pNv, int size);
-void  NVDoSync(NVPtr pNv);
+void  NVDmaWait(ScrnInfoPtr pScrn, int size);
 void  NVSync(ScrnInfoPtr pScrn);
 void  NVResetGraphics(ScrnInfoPtr pScrn);
-Bool  NVDmaCreateDMAObject(NVPtr pNv, uint32_t handle, int class, int target,
-			   CARD32 base_address, CARD32 size, int access);
-Bool  NVDmaCreateDMAObjectFromMem(NVPtr pNv, uint32_t handle, int class,
-				  NVAllocRec *mem, int access);
-NVAllocRec *NVDmaCreateNotifier(NVPtr pNv, int handle);
-Bool  NVDmaWaitForNotifier(NVPtr pNv, void *notifier);
 Bool  NVDmaCreateContextObject(NVPtr pNv, int handle, int class);
 Bool  NVInitDma(ScrnInfoPtr pScrn);
 
 /* in nv_xaa.c */
 Bool   NVXaaInit(ScreenPtr pScreen);
-void   NVWaitVSync(NVPtr pNv);
+void   NVWaitVSync(ScrnInfoPtr pScrn);
 void   NVSetRopSolid(ScrnInfoPtr pScrn, CARD32 rop, CARD32 planemask);
 
 /* in nv_exa.c */
@@ -120,6 +123,14 @@ void NVInitGraphContext(ScrnInfoPtr pScrn);
 
 /* nv_i2c.c */
 Bool NV_I2CInit(ScrnInfoPtr pScrn, I2CBusPtr *bus_ptr, int i2c_reg, char *name);
+
+/* in nv30_exa.c */
+Bool NVAccelInitNV40TCL(ScrnInfoPtr pScrn);
+Bool NV30EXACheckComposite(int, PicturePtr, PicturePtr, PicturePtr);
+Bool NV30EXAPrepareComposite(int, PicturePtr, PicturePtr, PicturePtr,
+				  PixmapPtr, PixmapPtr, PixmapPtr);
+void NV30EXAComposite(PixmapPtr, int, int, int, int, int, int, int, int);
+void NV30EXADoneComposite(PixmapPtr);
 
 #endif /* __NV_PROTO_H__ */
 
