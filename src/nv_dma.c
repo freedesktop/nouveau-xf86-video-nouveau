@@ -154,10 +154,6 @@ void NVResetGraphics(ScrnInfoPtr pScrn)
 	if (pNv->useEXA) {
 		if (pNv->AGPScratch)
 			NVDmaSetObjectOnSubchannel(pNv, NvSubMemFormat, NvMemFormat);
-		if (pNv->use3D) {
-			NVDmaSetObjectOnSubchannel(pNv, NvSub3D, Nv3D);
-			pNv->Reset3D(pNv);
-		}
 	} else if (!pNv->useEXA) {
 		NVDmaSetObjectOnSubchannel(pNv, NvSubClipRectangle, NvClipRectangle);
 		NVDmaSetObjectOnSubchannel(pNv, NvSubSolidLine, NvSolidLine);

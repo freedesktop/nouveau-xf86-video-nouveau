@@ -288,10 +288,6 @@ typedef struct _NVRec {
     CARD32              dmaMax;
     CARD32              *dmaBase;
 
-    Bool                use3D;
-    void                (*Reset3D)(NVPtr pNv);
-    void		(*InitEXA3D)(NVPtr pNv);
-
     CARD32              currentRop;
     int                 M2MFDirection;
 

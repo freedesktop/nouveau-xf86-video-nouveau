@@ -257,6 +257,19 @@ Bool NVDRIGetVersion(ScrnInfoPtr pScrn)
 	return TRUE;
 }
 
+Bool NVDRICheckModules(ScrnInfoPtr pScrn)
+{
+	if (!xf86LoaderCheckSymbol("GlxSetVisualConfigs")) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "[dri] GlxSetVisualConfigs not found.\n");
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "      NVIDIA's glx present, or glx not loaded.\n");
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 Bool NVDRIScreenInit(ScrnInfoPtr pScrn)
 {
 	DRIInfoPtr     pDRIInfo;
@@ -266,6 +279,9 @@ Bool NVDRIScreenInit(ScrnInfoPtr pScrn)
 	pScreen = screenInfo.screens[pScrn->scrnIndex];
 	int drm_page_size;
 	int irq;
+
+	if (!NVDRICheckModules(pScrn))
+		return FALSE;
 
 	drm_page_size = getpagesize();
 	if (!(pDRIInfo = DRICreateInfoRec())) return FALSE;

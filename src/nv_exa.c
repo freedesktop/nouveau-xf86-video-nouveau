@@ -260,6 +260,81 @@ static void NVExaCopy(PixmapPtr pDstPixmap,
 
 static void NVExaDoneCopy (PixmapPtr pDstPixmap) {}
 
+Bool NVAccelMemcpyRect(char *dst, const char *src, int height,
+		       int dst_pitch, int src_pitch, int line_len)
+{
+	if ((src_pitch == line_len) && (src_pitch == dst_pitch)) {
+		memcpy(dst, src, line_len*height);
+	} else {
+		while (height--) {
+			memcpy(dst, src, line_len);
+			src += src_pitch;
+			dst += dst_pitch;
+		}
+	}
+
+	return TRUE;
+}
+
+Bool
+NVAccelDownloadM2MF(ScrnInfoPtr pScrn, char *dst, uint64_t src_offset,
+				     int dst_pitch, int src_pitch,
+				     int line_len, int line_count)
+{
+	NVPtr pNv = NVPTR(pScrn);
+
+	setM2MFDirection(pScrn, 0);
+
+	while (line_count) {
+		char *src = pNv->AGPScratch->map;
+		int lc, i;
+
+		if (line_count * line_len <= pNv->AGPScratch->size) {
+			lc = line_count;
+		} else {
+			lc = pNv->AGPScratch->size / line_len;
+			if (lc > line_count)
+				lc = line_count;
+		}
+		/*XXX: and hw limitations? */
+
+		NVNotifierReset(pScrn, pNv->Notifier0);
+		NVDmaStart(pNv, NvSubMemFormat,
+				NV_MEMORY_TO_MEMORY_FORMAT_NOTIFY, 1);
+		NVDmaNext (pNv, 0);
+
+		NVDmaStart(pNv, NvSubMemFormat,
+				NV_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
+		NVDmaNext (pNv, (uint32_t)src_offset);
+		NVDmaNext (pNv, (uint32_t)pNv->AGPScratch->offset);
+		NVDmaNext (pNv, src_pitch);
+		NVDmaNext (pNv, line_len);
+		NVDmaNext (pNv, line_len);
+		NVDmaNext (pNv, lc);
+		NVDmaNext (pNv, (1<<8)|1);
+		NVDmaNext (pNv, 0);
+
+		NVDmaKickoff(pNv);
+		if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, 0))
+			return FALSE;
+
+		if (dst_pitch == line_len) {
+			memcpy(dst, src, dst_pitch * lc);
+			dst += dst_pitch * lc;
+		} else {
+			for (i = 0; i < lc; i++) {
+				memcpy(dst, src, line_len);
+				src += line_len;
+				dst += dst_pitch;
+			}
+		}
+
+		line_count -= lc;
+	}
+
+	return TRUE;
+}
+
 static Bool NVDownloadFromScreen(PixmapPtr pSrc,
 				 int x,  int y,
 				 int w,  int h,
@@ -267,55 +342,26 @@ static Bool NVDownloadFromScreen(PixmapPtr pSrc,
 {
 	ScrnInfoPtr pScrn = xf86Screens[pSrc->drawable.pScreen->myNum];
 	NVPtr pNv = NVPTR(pScrn);
-	CARD32 offset_in, pitch_in, max_lines, line_length;
-	Bool ret = TRUE;
+	int src_pitch, cpp, offset;
+	const char *src;
 
-	pitch_in = exaGetPixmapPitch(pSrc);
-	offset_in = NVAccelGetPixmapOffset(pSrc);
-	offset_in += y*pitch_in;
-	offset_in += x * (pSrc->drawable.bitsPerPixel >> 3);
-	max_lines = 65536/dst_pitch + 1;
-	line_length = w * (pSrc->drawable.bitsPerPixel >> 3);
+	src_pitch  = exaGetPixmapPitch(pSrc);
+	cpp = pSrc->drawable.bitsPerPixel >> 3;
+	offset = (y * src_pitch) + (x * cpp);
 
-	setM2MFDirection(pScrn, 0);
-
-	NVDEBUG("NVDownloadFromScreen: x=%d, y=%d, w=%d, h=%d\n", x, y, w, h);
-	NVDEBUG("    pitch_in=%x dst_pitch=%x offset_in=%x",
-			pitch_in, dst_pitch, offset_in);
-	while (h > 0) {
-		int nlines = h > max_lines ? max_lines : h;
-		NVDEBUG("     max_lines=%d, h=%d\n", max_lines, h);
-
-		/* reset the notification object */
-		NVNotifierReset(pScrn, pNv->Notifier0);
-		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_NOTIFY, 1);
-		NVDmaNext (pNv, 0);
-
-		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_OFFSET_IN, 8);
-		NVDmaNext (pNv, offset_in);
-		NVDmaNext (pNv, (uint32_t)pNv->AGPScratch->offset);
-		NVDmaNext (pNv, pitch_in);
-		NVDmaNext (pNv, dst_pitch);
-		NVDmaNext (pNv, line_length);
-		NVDmaNext (pNv, nlines);
-		NVDmaNext (pNv, 0x101);
-		NVDmaNext (pNv, 0);
-
-		NVDmaKickoff(pNv);
-		if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, 2000)) {
-			ret = FALSE;
-			goto error;
-		}
-
-		memcpy(dst, pNv->AGPScratch->map, nlines*dst_pitch);
-		h -= nlines;
-		offset_in += nlines*pitch_in;
-		dst += nlines*dst_pitch;
+	if (pNv->AGPScratch) {
+		if (NVAccelDownloadM2MF(pScrn, dst,
+					NVAccelGetPixmapOffset(pSrc) + offset,
+					dst_pitch, src_pitch, w * cpp, h))
+			return TRUE;
 	}
 
-error:
-	exaMarkSync(pSrc->drawable.pScreen);
-	return ret;
+	src = pSrc->devPrivate.ptr + offset;
+	exaWaitSync(pSrc->drawable.pScreen);
+	if (NVAccelMemcpyRect(dst, src, h, dst_pitch, src_pitch, w*cpp))
+		return TRUE;
+
+	return FALSE;
 }
 
 Bool
@@ -344,6 +390,7 @@ NVAccelUploadM2MF(ScrnInfoPtr pScrn, uint64_t dst_offset, const char *src,
 		/* Upload to GART */
 		if (src_pitch == line_len) {
 			memcpy(dst, src, src_pitch * lc);
+			src += src_pitch * lc;
 		} else {
 			for (i = 0; i < lc; i++) {
 				memcpy(dst, src, line_len);
@@ -384,21 +431,27 @@ static Bool NVUploadToScreen(PixmapPtr pDst,
 			     char *src, int src_pitch)
 {
 	ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
-	int dst_offset, dst_pitch, bpp;
-	Bool ret;
+	NVPtr pNv = NVPTR(pScrn);
+	int dst_offset, dst_pitch, cpp;
+	char *dst;
 
 	dst_offset = NVAccelGetPixmapOffset(pDst);
 	dst_pitch  = exaGetPixmapPitch(pDst);
-	bpp = pDst->drawable.bitsPerPixel >> 3;
+	cpp = pDst->drawable.bitsPerPixel >> 3;
 
-	if (1) {
-		dst_offset += (y * dst_pitch) + (x * bpp);
-		ret = NVAccelUploadM2MF(pScrn, dst_offset, src,
-					       dst_pitch, src_pitch,
-					       w * bpp, h);
+	if (pNv->AGPScratch) {
+		dst_offset += (y * dst_pitch) + (x * cpp);
+		if (NVAccelUploadM2MF(pScrn, dst_offset, src, dst_pitch,
+				      src_pitch, w * cpp, h))
+			return TRUE;
 	}
-	exaMarkSync(pDst->drawable.pScreen);
-	return ret;
+
+	dst = pDst->devPrivate.ptr + (y * dst_pitch) + (x * cpp);
+	exaWaitSync(pDst->drawable.pScreen);
+	if (NVAccelMemcpyRect(dst, src, h, dst_pitch, src_pitch, w*cpp))
+		return TRUE;
+
+	return FALSE;
 }
 
 
@@ -552,10 +605,8 @@ Bool NVExaInit(ScreenPtr pScreen)
 	pNv->EXADriverPtr->WaitMarker = NVExaWaitMarker;
 
 	/* Install default hooks */
-	if (pNv->AGPScratch) {
-		pNv->EXADriverPtr->DownloadFromScreen = NVDownloadFromScreen; 
-		pNv->EXADriverPtr->UploadToScreen = NVUploadToScreen; 
-	}
+	pNv->EXADriverPtr->DownloadFromScreen = NVDownloadFromScreen; 
+	pNv->EXADriverPtr->UploadToScreen = NVUploadToScreen; 
 
 	pNv->EXADriverPtr->PrepareCopy = NVExaPrepareCopy;
 	pNv->EXADriverPtr->Copy = NVExaCopy;
@@ -581,11 +632,6 @@ Bool NVExaInit(ScreenPtr pScreen)
 		pNv->EXADriverPtr->DoneComposite    = NVDoneComposite;
 		break;
 	}
-
-	/* If we're going to try and use 3D, let the card-specific function
-	 * override whatever hooks it wants.
-	 */
-	if (pNv->use3D) pNv->InitEXA3D(pNv);
 
 	return exaDriverInit(pScreen, pNv->EXADriverPtr);
 }
