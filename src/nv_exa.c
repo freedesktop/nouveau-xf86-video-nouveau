@@ -54,6 +54,7 @@ static void setM2MFDirection(ScrnInfoPtr pScrn, int dir)
 	NVPtr pNv = NVPTR(pScrn);
 
 	if (pNv->M2MFDirection != dir) {
+
 		NVDmaStart(pNv, NvSubMemFormat, MEMFORMAT_DMA_OBJECT_IN, 2);
 		NVDmaNext (pNv, dir ? NvDmaTT : NvDmaFB);
 		NVDmaNext (pNv, dir ? NvDmaFB : NvDmaTT);
@@ -286,13 +287,13 @@ NVAccelDownloadM2MF(ScrnInfoPtr pScrn, char *dst, uint64_t src_offset,
 	setM2MFDirection(pScrn, 0);
 
 	while (line_count) {
-		char *src = pNv->AGPScratch->map;
+		char *src = pNv->GARTScratch->map;
 		int lc, i;
 
-		if (line_count * line_len <= pNv->AGPScratch->size) {
+		if (line_count * line_len <= pNv->GARTScratch->size) {
 			lc = line_count;
 		} else {
-			lc = pNv->AGPScratch->size / line_len;
+			lc = pNv->GARTScratch->size / line_len;
 			if (lc > line_count)
 				lc = line_count;
 		}
@@ -306,7 +307,7 @@ NVAccelDownloadM2MF(ScrnInfoPtr pScrn, char *dst, uint64_t src_offset,
 		NVDmaStart(pNv, NvSubMemFormat,
 				NV_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
 		NVDmaNext (pNv, (uint32_t)src_offset);
-		NVDmaNext (pNv, (uint32_t)pNv->AGPScratch->offset);
+		NVDmaNext (pNv, (uint32_t)pNv->GARTScratch->offset);
 		NVDmaNext (pNv, src_pitch);
 		NVDmaNext (pNv, line_len);
 		NVDmaNext (pNv, line_len);
@@ -349,7 +350,7 @@ static Bool NVDownloadFromScreen(PixmapPtr pSrc,
 	cpp = pSrc->drawable.bitsPerPixel >> 3;
 	offset = (y * src_pitch) + (x * cpp);
 
-	if (pNv->AGPScratch) {
+	if (pNv->GARTScratch) {
 		if (NVAccelDownloadM2MF(pScrn, dst,
 					NVAccelGetPixmapOffset(pSrc) + offset,
 					dst_pitch, src_pitch, w * cpp, h))
@@ -374,14 +375,14 @@ NVAccelUploadM2MF(ScrnInfoPtr pScrn, uint64_t dst_offset, const char *src,
 	setM2MFDirection(pScrn, 1);
 
 	while (line_count) {
-		char *dst = pNv->AGPScratch->map;
+		char *dst = pNv->GARTScratch->map;
 		int lc, i;
 
 		/* Determine max amount of data we can DMA at once */
-		if (line_count * line_len <= pNv->AGPScratch->size) {
+		if (line_count * line_len <= pNv->GARTScratch->size) {
 			lc = line_count;
 		} else {
-			lc = pNv->AGPScratch->size / line_len;
+			lc = pNv->GARTScratch->size / line_len;
 			if (lc > line_count)
 				lc = line_count;
 		}
@@ -407,7 +408,7 @@ NVAccelUploadM2MF(ScrnInfoPtr pScrn, uint64_t dst_offset, const char *src,
 
 		NVDmaStart(pNv, NvSubMemFormat,
 				NV_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
-		NVDmaNext (pNv, (uint32_t)pNv->AGPScratch->offset);
+		NVDmaNext (pNv, (uint32_t)pNv->GARTScratch->offset);
 		NVDmaNext (pNv, (uint32_t)dst_offset);
 		NVDmaNext (pNv, line_len);
 		NVDmaNext (pNv, dst_pitch);
@@ -439,7 +440,7 @@ static Bool NVUploadToScreen(PixmapPtr pDst,
 	dst_pitch  = exaGetPixmapPitch(pDst);
 	cpp = pDst->drawable.bitsPerPixel >> 3;
 
-	if (pNv->AGPScratch) {
+	if (pNv->GARTScratch) {
 		dst_offset += (y * dst_pitch) + (x * cpp);
 		if (NVAccelUploadM2MF(pScrn, dst_offset, src, dst_pitch,
 				      src_pitch, w * cpp, h))

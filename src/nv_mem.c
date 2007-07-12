@@ -22,20 +22,15 @@ NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size)
 	}
 	mem->type   = memalloc.flags;
 	mem->size   = memalloc.size;
-	mem->offset = memalloc.region_offset;
+	mem->offset = memalloc.offset;
 
-	if (drmMap(pNv->drm_fd, mem->offset, mem->size, &mem->map)) {
-		ErrorF("drmMap() failed. offset=0x%llx, size=%lld (%d)\n",
-				mem->offset, mem->size, errno);
+	if (drmMap(pNv->drm_fd, memalloc.map_handle, mem->size, &mem->map)) {
+		ErrorF("drmMap() failed. handle=0x%llx, size=%lld (%d)\n",
+				memalloc.map_handle, mem->size, errno);
 		mem->map  = NULL;
 		NVFreeMemory(pNv, mem);
 		return NULL;
 	}
-
-	if (mem->type & NOUVEAU_MEM_FB)
-		mem->offset -= pNv->VRAMPhysical;
-	else if (mem->type & NOUVEAU_MEM_AGP)
-		mem->offset -= pNv->AGPPhysical;
 
 	return mem;
 }
@@ -53,11 +48,8 @@ void NVFreeMemory(NVPtr pNv, NVAllocRec *mem)
 		}
 
 		memfree.flags = mem->type;
-		memfree.region_offset = mem->offset;
-		if (mem->type & NOUVEAU_MEM_FB)
-			memfree.region_offset += pNv->VRAMPhysical;
-		else if (mem->type & NOUVEAU_MEM_AGP)
-			memfree.region_offset += pNv->AGPPhysical;
+		memfree.offset = mem->offset;
+
 		if (drmCommandWriteRead(pNv->drm_fd,
 					DRM_NOUVEAU_MEM_FREE, &memfree,
 					sizeof(memfree))) {

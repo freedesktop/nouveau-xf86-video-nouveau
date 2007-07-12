@@ -152,7 +152,7 @@ void NVResetGraphics(ScrnInfoPtr pScrn)
 	NVDmaSetObjectOnSubchannel(pNv, NvSubImagePattern, NvImagePattern   );
 	NVDmaSetObjectOnSubchannel(pNv, NvSubImageBlit   , NvImageBlit      );
 	if (pNv->useEXA) {
-		if (pNv->AGPScratch)
+		if (pNv->GARTScratch)
 			NVDmaSetObjectOnSubchannel(pNv, NvSubMemFormat, NvMemFormat);
 	} else if (!pNv->useEXA) {
 		NVDmaSetObjectOnSubchannel(pNv, NvSubClipRectangle, NvClipRectangle);
@@ -229,8 +229,8 @@ static void NVInitDmaCB(ScrnInfoPtr pScrn)
 	 * on defaults if anything's wrong (ie. out of AGP, invalid sizes)
 	 */
 #ifndef __powerpc__
-	if (pNv->AGPScratch)
-		cb_location = NOUVEAU_MEM_AGP;
+	if (pNv->GARTScratch)
+		cb_location = NOUVEAU_MEM_AGP | NOUVEAU_MEM_PCI_ACCEPTABLE;
 	else
 #endif
 	cb_location = NOUVEAU_MEM_FB;
@@ -239,6 +239,8 @@ static void NVInitDmaCB(ScrnInfoPtr pScrn)
 			cb_location = NOUVEAU_MEM_AGP;
 		else if (!xf86NameCmp(s, "VRAM"))
 			cb_location = NOUVEAU_MEM_FB;
+		else if (!xf86NameCmp(s, "PCI"))
+			cb_location = NOUVEAU_MEM_PCI;
 		else
 			xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Invalid value \"%s\" for CBLocation\n", s);
 	}

@@ -1794,12 +1794,15 @@ NVMapMem(ScrnInfoPtr pScrn)
 	pNv->VRAMPhysical = NVDRMGetParam(pNv, NOUVEAU_GETPARAM_FB_PHYSICAL);
 	pNv->AGPSize      = NVDRMGetParam(pNv, NOUVEAU_GETPARAM_AGP_SIZE);
 	pNv->AGPPhysical  = NVDRMGetParam(pNv, NOUVEAU_GETPARAM_AGP_PHYSICAL);
+	if ( ! pNv->AGPSize ) /*if no AGP*/
+		/*use PCI*/
+		pNv->SGPhysical  = NVDRMGetParam(pNv, NOUVEAU_GETPARAM_PCI_PHYSICAL);
+
+	int gart_scratch_size;
 
 	if (pNv->AGPSize) {
-		int gart_scratch_size;
-
 		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-			   "GART: %dMiB available\n",
+			   "AGPGART: %dMiB available\n",
 			   (unsigned int)(pNv->AGPSize >> 20));
 
 		if (pNv->AGPSize > (16*1024*1024))
@@ -1807,18 +1810,28 @@ NVMapMem(ScrnInfoPtr pScrn)
 		else
 			gart_scratch_size = pNv->AGPSize;
 
-		pNv->AGPScratch = NVAllocateMemory(pNv, NOUVEAU_MEM_AGP,
-							gart_scratch_size);
-		if (!pNv->AGPScratch) {
-			xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
-				   "Unable to allocate GART memory\n");
-		} else {
-			xf86DrvMsg(pScrn->scrnIndex, X_INFO,
-				   "GART: mapped %dMiB at %p\n",
-				   (unsigned int)(pNv->AGPScratch->size >> 20),
-				   pNv->AGPScratch->map);
 		}
+	else {
+
+		gart_scratch_size = (4 << 20) - (1 << 18) ;
+		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+			   "GART: PCI DMA - using %dKiB\n", gart_scratch_size >> 10);
+		
 	}
+
+	/*The DRM allocates AGP memory, PCI as a fallback */
+	pNv->GARTScratch = NVAllocateMemory(pNv, NOUVEAU_MEM_AGP | NOUVEAU_MEM_PCI_ACCEPTABLE,
+							gart_scratch_size);
+	if (!pNv->GARTScratch) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Unable to allocate GART memory\n");
+	} else {
+		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
+			   "GART: mapped %dMiB at %p, offset is %d\n",
+			   (unsigned int)(pNv->GARTScratch->size >> 20),
+			   pNv->GARTScratch->map, pNv->GARTScratch->offset);
+	}
+
 
 	pNv->Cursor = NVAllocateMemory(pNv, NOUVEAU_MEM_FB, 64*1024);
 	if (!pNv->Cursor) {
