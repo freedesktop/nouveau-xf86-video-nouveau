@@ -299,11 +299,6 @@ NVAccelDownloadM2MF(ScrnInfoPtr pScrn, char *dst, uint64_t src_offset,
 		}
 		/*XXX: and hw limitations? */
 
-		NVNotifierReset(pScrn, pNv->Notifier0);
-		NVDmaStart(pNv, NvSubMemFormat,
-				NV_MEMORY_TO_MEMORY_FORMAT_NOTIFY, 1);
-		NVDmaNext (pNv, 0);
-
 		NVDmaStart(pNv, NvSubMemFormat,
 				NV_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
 		NVDmaNext (pNv, (uint32_t)src_offset);
@@ -315,6 +310,12 @@ NVAccelDownloadM2MF(ScrnInfoPtr pScrn, char *dst, uint64_t src_offset,
 		NVDmaNext (pNv, (1<<8)|1);
 		NVDmaNext (pNv, 0);
 
+		NVNotifierReset(pScrn, pNv->Notifier0);
+		NVDmaStart(pNv, NvSubMemFormat,
+				NV_MEMORY_TO_MEMORY_FORMAT_NOTIFY, 1);
+		NVDmaNext (pNv, 0);
+		NVDmaStart(pNv, NvSubMemFormat, 0x100, 1);
+		NVDmaNext (pNv, 0);
 		NVDmaKickoff(pNv);
 		if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, 0))
 			return FALSE;
@@ -401,11 +402,6 @@ NVAccelUploadM2MF(ScrnInfoPtr pScrn, uint64_t dst_offset, const char *src,
 		}
 
 		/* DMA to VRAM */
-		NVNotifierReset(pScrn, pNv->Notifier0);
-		NVDmaStart(pNv, NvSubMemFormat,
-				NV_MEMORY_TO_MEMORY_FORMAT_NOTIFY, 1);
-		NVDmaNext (pNv, 0);
-
 		NVDmaStart(pNv, NvSubMemFormat,
 				NV_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
 		NVDmaNext (pNv, (uint32_t)pNv->GARTScratch->offset);
@@ -417,6 +413,12 @@ NVAccelUploadM2MF(ScrnInfoPtr pScrn, uint64_t dst_offset, const char *src,
 		NVDmaNext (pNv, (1<<8)|1);
 		NVDmaNext (pNv, 0);
 
+		NVNotifierReset(pScrn, pNv->Notifier0);
+		NVDmaStart(pNv, NvSubMemFormat,
+				NV_MEMORY_TO_MEMORY_FORMAT_NOTIFY, 1);
+		NVDmaNext (pNv, 0);
+		NVDmaStart(pNv, NvSubMemFormat, 0x100, 1);
+		NVDmaNext (pNv, 0);
 		NVDmaKickoff(pNv);
 		if (!NVNotifierWaitStatus(pScrn, pNv->Notifier0, 0, 0))
 			return FALSE;

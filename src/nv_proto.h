@@ -20,13 +20,19 @@ NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size);
 void        NVFreeMemory(NVPtr pNv, NVAllocRec *mem);
 
 /* in nv_notifier.c */
-drm_nouveau_notifier_alloc_t *NVNotifierAlloc(ScrnInfoPtr, uint32_t handle);
-void        NVNotifierDestroy(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
-void        NVNotifierReset(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
-uint32_t    NVNotifierStatus(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
-uint32_t    NVNotifierErrorCode(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
-uint32_t    NVNotifierReturnVal(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *);
-Bool        NVNotifierWaitStatus(ScrnInfoPtr, drm_nouveau_notifier_alloc_t *,
+struct drm_nouveau_notifier_alloc *NVNotifierAlloc(ScrnInfoPtr,uint32_t handle);
+void        NVNotifierDestroy(ScrnInfoPtr,
+			      struct drm_nouveau_notifier_alloc *);
+void        NVNotifierReset(ScrnInfoPtr,
+			    struct drm_nouveau_notifier_alloc *);
+uint32_t    NVNotifierStatus(ScrnInfoPtr,
+			     struct drm_nouveau_notifier_alloc *);
+uint32_t    NVNotifierErrorCode(ScrnInfoPtr,
+				struct drm_nouveau_notifier_alloc *);
+uint32_t    NVNotifierReturnVal(ScrnInfoPtr,
+				struct drm_nouveau_notifier_alloc *);
+Bool        NVNotifierWaitStatus(ScrnInfoPtr,
+				 struct drm_nouveau_notifier_alloc *,
 				 uint32_t status, uint32_t timeout);
 
 /* in nv_dri.c */

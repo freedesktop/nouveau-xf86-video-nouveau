@@ -11,7 +11,7 @@
 
 Bool NVDRMSetParam(NVPtr pNv, unsigned int param, unsigned int value)
 {
-	drm_nouveau_setparam_t setparam;
+	struct drm_nouveau_setparam setparam;
 	int ret;
 
 	setparam.param = param;
@@ -25,7 +25,7 @@ Bool NVDRMSetParam(NVPtr pNv, unsigned int param, unsigned int value)
 
 unsigned int NVDRMGetParam(NVPtr pNv, unsigned int param)
 {
-	drm_nouveau_getparam_t getparam;
+	struct drm_nouveau_getparam getparam;
 
 	getparam.param = param;
 	drmCommandWriteRead(pNv->drm_fd, DRM_NOUVEAU_GETPARAM, &getparam, sizeof(getparam));

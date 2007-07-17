@@ -207,7 +207,7 @@ void NVResetGraphics(ScrnInfoPtr pScrn)
 
 Bool NVDmaCreateContextObject(NVPtr pNv, int handle, int class)
 {
-	drm_nouveau_grobj_alloc_t cto;
+	struct drm_nouveau_grobj_alloc cto;
 	int ret;
 
 	cto.channel = pNv->fifo.channel;

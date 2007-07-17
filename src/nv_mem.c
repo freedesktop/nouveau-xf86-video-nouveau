@@ -2,7 +2,7 @@
 
 NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size)
 {
-	drm_nouveau_mem_alloc_t memalloc;
+	struct drm_nouveau_mem_alloc memalloc;
 	NVAllocRec *mem;
 
 	mem = malloc(sizeof(NVAllocRec));
@@ -16,7 +16,7 @@ NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size)
 				sizeof(memalloc))) {
 		ErrorF("NOUVEAU_MEM_ALLOC failed.  "
 			"flags=0x%08x, size=%lld (%d)\n",
-			mem->type, mem->size, errno);
+			memalloc.flags, memalloc.size, errno);
 		free(mem);
 		return NULL;
 	}
@@ -37,7 +37,7 @@ NVAllocRec *NVAllocateMemory(NVPtr pNv, int type, int size)
 
 void NVFreeMemory(NVPtr pNv, NVAllocRec *mem)
 {
-	drm_nouveau_mem_free_t memfree;
+	struct drm_nouveau_mem_free memfree;
 
 	if (mem) {
 		if (mem->map) {

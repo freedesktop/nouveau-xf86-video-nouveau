@@ -281,9 +281,9 @@ typedef struct _NVRec {
     Bool                LockedUp;
 
     volatile void *     NotifierBlock;
-    drm_nouveau_notifier_alloc_t *Notifier0;
+    struct drm_nouveau_notifier_alloc *Notifier0;
 
-    drm_nouveau_fifo_alloc_t fifo;
+    struct drm_nouveau_fifo_alloc fifo;
     CARD32              dmaPut;
     CARD32              dmaCurrent;
     CARD32              dmaFree;
