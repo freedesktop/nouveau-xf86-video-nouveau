@@ -284,13 +284,12 @@ typedef struct _NVRec {
     int                 PanelTweak;
     Bool                LVDS;
 
-    int                 IRQ;
     Bool                LockedUp;
 
     volatile void *     NotifierBlock;
-    struct drm_nouveau_notifier_alloc *Notifier0;
+    struct drm_nouveau_notifierobj_alloc *Notifier0;
 
-    struct drm_nouveau_fifo_alloc fifo;
+    struct drm_nouveau_channel_alloc fifo;
     CARD32              dmaPut;
     CARD32              dmaCurrent;
     CARD32              dmaFree;

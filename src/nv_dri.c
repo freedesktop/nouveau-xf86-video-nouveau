@@ -244,7 +244,7 @@ Bool NVDRIGetVersion(ScrnInfoPtr pScrn)
 	}
 	
 	/* temporary lock step versioning */
-#if NOUVEAU_DRM_HEADER_PATCHLEVEL != 9
+#if NOUVEAU_DRM_HEADER_PATCHLEVEL != 10
 #error nouveau_drm.h doesn't match expected patchlevel, update libdrm.
 #endif
 	if (pNv->pKernelDRMVersion->version_patchlevel !=
@@ -278,7 +278,6 @@ Bool NVDRIScreenInit(ScrnInfoPtr pScrn)
 	ScreenPtr pScreen;
 	pScreen = screenInfo.screens[pScrn->scrnIndex];
 	int drm_page_size;
-	int irq;
 
 	if (!NVDRICheckModules(pScrn))
 		return FALSE;
@@ -351,24 +350,6 @@ Bool NVDRIScreenInit(ScrnInfoPtr pScrn)
 		pDRIInfo = NULL;
 		return FALSE;
 	}
-
-#if 0
-	pNv->IRQ = 0;
-#else
-	/* Ask DRM to install IRQ handler */
-	irq = drmGetInterruptFromBusID(pNv->drm_fd,
-			((pciConfigPtr)pNv->PciInfo->thisCard)->busnum,
-			((pciConfigPtr)pNv->PciInfo->thisCard)->devnum,
-			((pciConfigPtr)pNv->PciInfo->thisCard)->funcnum);
-
-	if (drmCtlInstHandler(pNv->drm_fd, irq)) {
-		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Failed to install IRQ handler\n");
-		pNv->IRQ = 0;
-	} else {
-		xf86DrvMsg(pScrn->scrnIndex, X_INFO, "IRQ handler initialised.  IRQ %d\n", irq);
-		pNv->IRQ = irq;
-	}
-#endif
 
 	return TRUE;
 }

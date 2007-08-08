@@ -174,12 +174,12 @@ NV30_LoadVtxProg(ScrnInfoPtr pScrn, nv_shader_t *shader)
 	if (!shader->hw_id) {
 		shader->hw_id = next_hw_id;
 
-		NVDmaStart(pNv, NvSub3D,
+		NVDmaStart(pNv, Nv3D,
 				NV30_TCL_PRIMITIVE_3D_VP_UPLOAD_FROM_ID, 1);
 		NVDmaNext (pNv, (shader->hw_id));
 
 		for (i=0; i<shader->size; i+=4) {
-			NVDmaStart(pNv, NvSub3D,
+			NVDmaStart(pNv, Nv3D,
 					NV30_TCL_PRIMITIVE_3D_VP_UPLOAD_INST0,
 					4);
 			NVDmaNext (pNv, shader->data[i + 0]);
@@ -190,10 +190,10 @@ NV30_LoadVtxProg(ScrnInfoPtr pScrn, nv_shader_t *shader)
 		}
 	}
 
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VP_PROGRAM_START_ID, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VP_PROGRAM_START_ID, 1);
 	NVDmaNext (pNv, (shader->hw_id));
 
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VP_IN_REG, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VP_IN_REG, 2);
 	NVDmaNext (pNv, shader->card_priv.NV30VP.vp_in_reg);
 	NVDmaNext (pNv, shader->card_priv.NV30VP.vp_out_reg);
 }
@@ -226,16 +226,16 @@ NV30_LoadFragProg(ScrnInfoPtr pScrn, nv_shader_t *shader)
 		next_hw_id_offset = (next_hw_id_offset + 63) & ~63;
 	}
 
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_FP_ACTIVE_PROGRAM, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_FP_ACTIVE_PROGRAM, 1);
 	NVDmaNext (pNv, shader->hw_id | 1);
 
 	if (pNv->Architecture == NV_30) {
-		NVDmaStart(pNv, NvSub3D, 0x1d60, 1);
+		NVDmaStart(pNv, Nv3D, 0x1d60, 1);
 		NVDmaNext (pNv, 0); /* USES_KIL (1<<7) == 0 */
-		NVDmaStart(pNv, NvSub3D, 0x1450, 1);
+		NVDmaStart(pNv, Nv3D, 0x1450, 1);
 		NVDmaNext (pNv, shader->card_priv.NV30FP.num_regs << 16);
 	} else {
-		NVDmaStart(pNv, NvSub3D, 0x1d60, 1);
+		NVDmaStart(pNv, Nv3D, 0x1d60, 1);
 		NVDmaNext (pNv, (0<<7) /* !USES_KIL */ |
 			 (shader->card_priv.NV30FP.num_regs << 24));
 	}
@@ -266,10 +266,10 @@ NV30_SetupBlend(ScrnInfoPtr pScrn, nv_pict_op_t *blend, Bool dest_has_alpha,
 	}
 
 	if (sblend == BF(ONE) && dblend == BF(ZERO)) {
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_BLEND_FUNC_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_BLEND_FUNC_ENABLE, 1);
 	NVDmaNext (pNv, 0);
 	} else {
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_BLEND_FUNC_ENABLE, 5);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_BLEND_FUNC_ENABLE, 5);
 	NVDmaNext (pNv, 1);
 	NVDmaNext (pNv, (sblend << 16) | sblend);
 	NVDmaNext (pNv, (dblend << 16) | dblend);
@@ -300,7 +300,7 @@ NV30EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 	else
 		card_filter = 1;
 
-	NVDmaStart(pNv, NvSub3D,
+	NVDmaStart(pNv, Nv3D,
 			NV30_TCL_PRIMITIVE_3D_TX_ADDRESS_UNIT(unit), 8);
 	NVDmaNext (pNv, NVAccelGetPixmapOffset(pPix));
 	NVDmaNext (pNv, (2 << 4)  /* 2D */ |
@@ -319,7 +319,7 @@ NV30EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 			0x3fd6 /* engine lock */);
 	NVDmaNext (pNv, (pPix->drawable.width << 16) | pPix->drawable.height);
 	NVDmaNext (pNv, 0); /* border ARGB */
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_TX_DEPTH_UNIT(unit), 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_TX_DEPTH_UNIT(unit), 1);
 	NVDmaNext (pNv, (1 << 20) /* depth */ |
 			(uint32_t)exaGetPixmapPitch(pPix));
 
@@ -342,7 +342,7 @@ NV30_SetupSurface(ScrnInfoPtr pScrn, PixmapPtr pPix, PictFormatShort format)
 		return FALSE;
 	}
 
-	NVDmaStart(pNv, NvSub3D, 0x208, 3);
+	NVDmaStart(pNv, Nv3D, 0x208, 3);
 	NVDmaNext (pNv, fmt->card_fmt);
 	NVDmaNext (pNv, (uint32_t)exaGetPixmapPitch(pPix));
 	NVDmaNext (pNv, NVAccelGetPixmapOffset(pPix));
@@ -452,12 +452,12 @@ NV30EXAPrepareComposite(int op, PicturePtr psPict,
 	/* Appears to be some kind of cache flush, needed here at least
 	 * sometimes.. funky text rendering otherwise :)
 	 */
-	NVDmaStart(pNv, NvSub3D, 0x1fd8, 1);
+	NVDmaStart(pNv, Nv3D, 0x1fd8, 1);
 	NVDmaNext (pNv, 2);
-	NVDmaStart(pNv, NvSub3D, 0x1fd8, 1);
+	NVDmaStart(pNv, Nv3D, 0x1fd8, 1);
 	NVDmaNext (pNv, 1);
 
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_BEGIN_END, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_BEGIN_END, 1);
 	NVDmaNext (pNv, 8); /* GL_QUADS */
 
 	return TRUE;
@@ -486,16 +486,16 @@ NV30EXATransformCoord(PictTransformPtr t, int x, int y, float sx, float sy,
 }
 
 #define CV_OUTm(sx,sy,mx,my,dx,dy) do {                                        \
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2F_X(8), 4);   \
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2F_X(8), 4);   \
 	NVDmaFloat(pNv, (sx)); NVDmaFloat(pNv, (sy));                          \
 	NVDmaFloat(pNv, (mx)); NVDmaFloat(pNv, (my));                          \
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2I(0), 1);     \
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2I(0), 1);     \
 	NVDmaNext (pNv, ((dy)<<16)|(dx));                                      \
 } while(0)
 #define CV_OUT(sx,sy,dx,dy) do {                                               \
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2F_X(8), 2);   \
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2F_X(8), 2);   \
 	NVDmaFloat(pNv, (sx)); NVDmaFloat(pNv, (sy));                          \
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2I(0), 1);     \
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VTX_ATTR_2I(0), 1);     \
 	NVDmaNext (pNv, ((dy)<<16)|(dx));                                      \
 } while(0)
 
@@ -547,7 +547,7 @@ NV30EXADoneComposite(PixmapPtr pdPix)
 	ScrnInfoPtr pScrn = xf86Screens[pdPix->drawable.pScreen->myNum];
 	NVPtr pNv = NVPTR(pScrn);
 
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_BEGIN_END, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_BEGIN_END, 1);
 	NVDmaNext (pNv, 0);
 }
 
@@ -587,42 +587,40 @@ NVAccelInitNV40TCL(ScrnInfoPtr pScrn)
 		have_object = TRUE;
 	}
 
-	NVDmaSetObjectOnSubchannel(pNv, NvSub3D, Nv3D);
-
-	NVDmaStart(pNv, NvSub3D, 0x180, 1);
+	NVDmaStart(pNv, Nv3D, 0x180, 1);
 	NVDmaNext (pNv, NvDmaNotifier0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_SET_OBJECT1, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_SET_OBJECT1, 2);
 	NVDmaNext (pNv, NvDmaFB);
 	NVDmaNext (pNv, NvDmaFB);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_SET_OBJECT8, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_SET_OBJECT8, 1);
 	NVDmaNext (pNv, NvDmaFB);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_SET_OBJECT4, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_SET_OBJECT4, 2);
 	NVDmaNext (pNv, NvDmaFB);
 	NVDmaNext (pNv, NvDmaFB);
 
 	/* voodoo */
-	NVDmaStart(pNv, NvSub3D, 0x1ea4, 3);
+	NVDmaStart(pNv, Nv3D, 0x1ea4, 3);
 	NVDmaNext(pNv, 0x00000010);
 	NVDmaNext(pNv, 0x01000100);
 	NVDmaNext(pNv, 0xff800006);
-	NVDmaStart(pNv, NvSub3D, 0x1fc4, 1);
+	NVDmaStart(pNv, Nv3D, 0x1fc4, 1);
 	NVDmaNext(pNv, 0x06144321);
-	NVDmaStart(pNv, NvSub3D, 0x1fc8, 2);
+	NVDmaStart(pNv, Nv3D, 0x1fc8, 2);
 	NVDmaNext(pNv, 0xedcba987);
 	NVDmaNext(pNv, 0x00000021);
-	NVDmaStart(pNv, NvSub3D, 0x1fd0, 1);
+	NVDmaStart(pNv, Nv3D, 0x1fd0, 1);
 	NVDmaNext(pNv, 0x00171615);
-	NVDmaStart(pNv, NvSub3D, 0x1fd4, 1);
+	NVDmaStart(pNv, Nv3D, 0x1fd4, 1);
 	NVDmaNext(pNv, 0x001b1a19);
-	NVDmaStart(pNv, NvSub3D, 0x1ef8, 1);
+	NVDmaStart(pNv, Nv3D, 0x1ef8, 1);
 	NVDmaNext(pNv, 0x0020ffff);
-	NVDmaStart(pNv, NvSub3D, 0x1d64, 1);
+	NVDmaStart(pNv, Nv3D, 0x1d64, 1);
 	NVDmaNext(pNv, 0x00d30000);
-	NVDmaStart(pNv, NvSub3D, 0x1e94, 1);
+	NVDmaStart(pNv, Nv3D, 0x1e94, 1);
 	NVDmaNext(pNv, 0x00000001);
 
 	/* identity viewport transform */
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VIEWPORT_XFRM_OX, 8);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VIEWPORT_XFRM_OX, 8);
 	NVDmaFloat(pNv, 0.0);
 	NVDmaFloat(pNv, 0.0);
 	NVDmaFloat(pNv, 0.0);
@@ -634,63 +632,63 @@ NVAccelInitNV40TCL(ScrnInfoPtr pScrn)
 
 	/* default 3D state */
 	/*XXX: replace with the same state that the DRI emits on startup */
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_STENCIL_FRONT_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_STENCIL_FRONT_ENABLE, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_STENCIL_BACK_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_STENCIL_BACK_ENABLE, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_ALPHA_FUNC_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_ALPHA_FUNC_ENABLE, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_DEPTH_WRITE_ENABLE, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_DEPTH_WRITE_ENABLE, 2);
 	NVDmaNext (pNv, 0); /* wr disable */
 	NVDmaNext (pNv, 0); /* test disable */
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_COLOR_MASK, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_COLOR_MASK, 1);
 	NVDmaNext (pNv, 0x01010101); /* TR,TR,TR,TR */
-	NVDmaStart(pNv, NvSub3D, NV40_TCL_PRIMITIVE_3D_COLOR_MASK_BUFFER123, 1);
+	NVDmaStart(pNv, Nv3D, NV40_TCL_PRIMITIVE_3D_COLOR_MASK_BUFFER123, 1);
 	NVDmaNext (pNv, 0x0000fff0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_CULL_FACE_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_CULL_FACE_ENABLE, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_BLEND_FUNC_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_BLEND_FUNC_ENABLE, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub3D,
+	NVDmaStart(pNv, Nv3D,
 			NV30_TCL_PRIMITIVE_3D_LOGIC_OP_ENABLE, 2);
 	NVDmaNext (pNv, 0);
 	NVDmaNext (pNv, 0x1503);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_DITHER_ENABLE, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_DITHER_ENABLE, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_SHADE_MODEL, 1);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_SHADE_MODEL, 1);
 	NVDmaNext (pNv, 0x1d01); /* GL_SMOOTH */
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_POLYGON_OFFSET_FACTOR,2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_POLYGON_OFFSET_FACTOR,2);
 	NVDmaFloat(pNv, 0.0);
 	NVDmaFloat(pNv, 0.0);
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_POLYGON_MODE_FRONT, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_POLYGON_MODE_FRONT, 2);
 	NVDmaNext (pNv, 0x1b02); /* FRONT = GL_FILL */
 	NVDmaNext (pNv, 0x1b02); /* BACK  = GL_FILL */
-	NVDmaStart(pNv, NvSub3D,
+	NVDmaStart(pNv, Nv3D,
 			NV30_TCL_PRIMITIVE_3D_POLYGON_STIPPLE_PATTERN(0), 0x20);
 	for (i=0;i<0x20;i++)
 		NVDmaNext(pNv, 0xFFFFFFFF);
 	for (i=0;i<16;i++) {
-		NVDmaStart(pNv, NvSub3D,
+		NVDmaStart(pNv, Nv3D,
 				NV30_TCL_PRIMITIVE_3D_TX_ENABLE_UNIT(i), 1);
 		NVDmaNext(pNv, 0);
 	}
 
-	NVDmaStart(pNv, NvSub3D, 0x1d78, 1);
+	NVDmaStart(pNv, Nv3D, 0x1d78, 1);
 	NVDmaNext (pNv, 0x110);
 
-	NVDmaStart(pNv, NvSub3D, 0x0220, 1);
+	NVDmaStart(pNv, Nv3D, 0x0220, 1);
 	NVDmaNext (pNv, 1);
-	NVDmaStart(pNv, NvSub3D,
+	NVDmaStart(pNv, Nv3D,
 			NV30_TCL_PRIMITIVE_3D_VIEWPORT_COLOR_BUFFER_DIM0, 2);
 	NVDmaNext (pNv, (4096 << 16));
 	NVDmaNext (pNv, (4096 << 16));
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_SCISSOR_WIDTH_XPOS, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_SCISSOR_WIDTH_XPOS, 2);
 	NVDmaNext (pNv, (4096 << 16));
 	NVDmaNext (pNv, (4096 << 16));
-	NVDmaStart(pNv, NvSub3D, NV30_TCL_PRIMITIVE_3D_VIEWPORT_DIMS_0, 2);
+	NVDmaStart(pNv, Nv3D, NV30_TCL_PRIMITIVE_3D_VIEWPORT_DIMS_0, 2);
 	NVDmaNext (pNv, (4096 << 16));
 	NVDmaNext (pNv, (4096 << 16));
-	NVDmaStart(pNv, NvSub3D,
+	NVDmaStart(pNv, Nv3D,
 			NV30_TCL_PRIMITIVE_3D_VIEWPORT_COLOR_BUFFER_OFS0, 2);
 	NVDmaNext (pNv, (4095 << 16));
 	NVDmaNext (pNv, (4095 << 16));

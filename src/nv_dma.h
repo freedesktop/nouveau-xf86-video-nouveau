@@ -69,26 +69,17 @@ enum DMAObjects {
 	Nv2D			= 0x80000020,
 	NvDmaFB			= 0xD8000001,
 	NvDmaTT			= 0xD8000002,
-	NvDmaNotifier0		= 0xD8000003
+	NvDmaNotifier0		= 0xD8000003,
+	/*XVideo notifiers need to have consecutive handles, be careful when remapping*/
+	NvDmaXvNotifier0	= 0xE8000000,
+	NvDmaXvNotifier1	= 0xE8000001,
+	NvDmaXvNotifier2	= 0xE8000002,
+	NvDmaXvNotifier3	= 0xE8000003,
+	NvDmaXvNotifier4	= 0xE8000004,
+	NvDmaXvNotifier5	= 0xE8000005,
 };
 
-enum DMASubchannel {
-/* EXA + XAA + Xv */
-	NvSub2D			= 0,
-	NvSubContextSurfaces	= 0, 
-	NvSubRectangle		= 1, 
-	NvSubScaledImage	= 2, 
-/* EXA + XAA */
-	NvSubRop		= 3, 
-	NvSubImagePattern	= 4, 
-	NvSubImageBlit		= 5, 
-/* EXA */
-	NvSubMemFormat		= 6,
-	NvSub3D			= 7,
-/* XAA */
-	NvSubClipRectangle	= 6, 
-	NvSubSolidLine		= 7, 
-};
+extern void NVDmaStart(NVPtr pNv, uint32_t object, uint32_t tag, int size);
 
 #define NVDmaNext(pNv, data) do {                        \
 	NVDEBUG("\tNVDmaNext: @0x%08x  0x%08x\n", ((pNv)->dmaCurrent),(data));           \
@@ -102,23 +93,6 @@ enum DMASubchannel {
 	} c;                       \
 	c.v = (data);              \
 	NVDmaNext((pNv), c.u);     \
-} while(0)
-
-#define NVDmaStart(pNv, subchannel, tag, size) do {                     \
-       if((pNv)->dmaFree <= (size))                                     \
-            NVDmaWait(pScrn, size);                                     \
-        NVDEBUG("NVDmaStart: subc=%d, cmd=%x, num=%d\n", (subchannel), (tag), (size)); \
-        NVDmaNext(pNv, ((size) << 18) | ((subchannel) << 13) | (tag));  \
-        (pNv)->dmaFree -= ((size) + 1);                                 \
-} while(0)
-
-#define NVDmaStart_NonInc(pNv, subchannel, tag, size) do {              \
-	NVDmaStart((pNv), (subchannel), (tag)|0x40000000, (size));      \
-} while(0)
-
-#define NVDmaSetObjectOnSubchannel(pNv, subchannel, object) do { \
-    NVDmaStart(pNv, subchannel, 0, 1);                           \
-    NVDmaNext(pNv,object);                                       \
 } while(0)
 
 #define SURFACE_FORMAT                                              0x00000300

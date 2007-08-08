@@ -16,11 +16,11 @@
 	NVPtr pNv = NVPTR(pScrn); \
 	volatile uint32_t *__v = (void*)pNv->NotifierBlock + notifier->offset
 
-struct drm_nouveau_notifier_alloc *
+struct drm_nouveau_notifierobj_alloc *
 NVNotifierAlloc(ScrnInfoPtr pScrn, uint32_t handle)
 {
 	NVPtr pNv = NVPTR(pScrn);
-	struct drm_nouveau_notifier_alloc *notifier;
+	struct drm_nouveau_notifierobj_alloc *notifier;
 	int ret;
 
 	notifier = xcalloc(1, sizeof(*notifier));
@@ -32,7 +32,7 @@ NVNotifierAlloc(ScrnInfoPtr pScrn, uint32_t handle)
 	notifier->channel = pNv->fifo.channel;
 	notifier->handle  = handle;
 	notifier->count   = 1;
-	ret = drmCommandWriteRead(pNv->drm_fd, DRM_NOUVEAU_NOTIFIER_ALLOC,
+	ret = drmCommandWriteRead(pNv->drm_fd, DRM_NOUVEAU_NOTIFIEROBJ_ALLOC,
 				  notifier, sizeof(*notifier));
 	if (ret) {
 		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
@@ -47,7 +47,7 @@ NVNotifierAlloc(ScrnInfoPtr pScrn, uint32_t handle)
 
 void
 NVNotifierDestroy(ScrnInfoPtr pScrn,
-		  struct drm_nouveau_notifier_alloc *notifier)
+		  struct drm_nouveau_notifierobj_alloc *notifier)
 {
 	if (notifier) {
 		/*XXX: destroy notifier object */
@@ -57,7 +57,7 @@ NVNotifierDestroy(ScrnInfoPtr pScrn,
 
 void
 NVNotifierReset(ScrnInfoPtr pScrn,
-		struct drm_nouveau_notifier_alloc *notifier)
+		struct drm_nouveau_notifierobj_alloc *notifier)
 {
 	NOTIFIER(n);
 
@@ -70,7 +70,7 @@ NVNotifierReset(ScrnInfoPtr pScrn,
 
 uint32_t
 NVNotifierStatus(ScrnInfoPtr pScrn,
-		 struct drm_nouveau_notifier_alloc *notifier)
+		 struct drm_nouveau_notifierobj_alloc *notifier)
 {
 	NOTIFIER(n);
 
@@ -79,7 +79,7 @@ NVNotifierStatus(ScrnInfoPtr pScrn,
 
 uint32_t
 NVNotifierErrorCode(ScrnInfoPtr pScrn,
-		    struct drm_nouveau_notifier_alloc *notifier)
+		    struct drm_nouveau_notifierobj_alloc *notifier)
 {
 	NOTIFIER(n);
 
@@ -88,7 +88,7 @@ NVNotifierErrorCode(ScrnInfoPtr pScrn,
 
 uint32_t
 NVNotifierReturnVal(ScrnInfoPtr pScrn,
-		    struct drm_nouveau_notifier_alloc *notifier)
+		    struct drm_nouveau_notifierobj_alloc *notifier)
 {
 	NOTIFIER(n);
 
@@ -97,7 +97,7 @@ NVNotifierReturnVal(ScrnInfoPtr pScrn,
 
 Bool
 NVNotifierWaitStatus(ScrnInfoPtr pScrn,
-		     struct drm_nouveau_notifier_alloc *notifier,
+		     struct drm_nouveau_notifierobj_alloc *notifier,
 		     unsigned int status, unsigned int timeout)
 {
 	NOTIFIER(n);

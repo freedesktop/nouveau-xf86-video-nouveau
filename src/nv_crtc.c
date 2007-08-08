@@ -1142,9 +1142,6 @@ static void nv_crtc_load_state_ext(xf86CrtcPtr crtc, RIVA_HW_STATE *state)
     
     regp = &state->crtc_reg[nv_crtc->crtc];
 
-    if (!pNv->IRQ)
-        nvWriteMC(pNv, 0x140, 0);
-
     if(pNv->Architecture >= NV_ARCH_10) {
         if(pNv->twoHeads) {
            nvWriteCRTC(pNv, nv_crtc->crtc, NV_CRTC_FSEL, regp->head);

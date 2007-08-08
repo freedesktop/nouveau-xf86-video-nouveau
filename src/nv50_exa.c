@@ -57,11 +57,11 @@ NV50EXAAcquireSurface2D(PixmapPtr pPix, int is_src)
 	if (!NV50EXA2DSurfaceFormat(pPix, &fmt))
 		return FALSE;
 
-	NVDmaStart(pNv, NvSub2D, mthd, 2);
+	NVDmaStart(pNv, Nv2D, mthd, 2);
 	NVDmaNext (pNv, fmt);
 	NVDmaNext (pNv, 1);
 
-	NVDmaStart(pNv, NvSub2D, mthd + 0x14, 5);
+	NVDmaStart(pNv, Nv2D, mthd + 0x14, 5);
 	NVDmaNext (pNv, (uint32_t)exaGetPixmapPitch(pPix));
 	NVDmaNext (pNv, pPix->drawable.width);
 	NVDmaNext (pNv, pPix->drawable.height);
@@ -69,7 +69,7 @@ NV50EXAAcquireSurface2D(PixmapPtr pPix, int is_src)
 	NVDmaNext (pNv, NVAccelGetPixmapOffset(pPix));
 
 	if (is_src == 0) {
-		NVDmaStart(pNv, NvSub2D, NV50_2D_CLIP_X, 4);
+		NVDmaStart(pNv, Nv2D, NV50_2D_CLIP_X, 4);
 		NVDmaNext (pNv, 0);
 		NVDmaNext (pNv, 0);
 		NVDmaNext (pNv, pPix->drawable.width);
@@ -92,7 +92,7 @@ NV50EXAReleaseSurfaces(PixmapPtr pdPix)
 {
 	NV50EXA_LOCALS(pdPix);
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_NOP, 1);
+	NVDmaStart(pNv, Nv2D, NV50_2D_NOP, 1);
 	NVDmaNext (pNv, 0);
 	NVDmaKickoff(pNv);
 }
@@ -102,7 +102,7 @@ NV50EXASetPattern(PixmapPtr pdPix, int col0, int col1, int pat0, int pat1)
 {
 	NV50EXA_LOCALS(pdPix);
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_PATTERN_COLOR_0, 4);
+	NVDmaStart(pNv, Nv2D, NV50_2D_PATTERN_COLOR_0, 4);
 	NVDmaNext (pNv, col0);
 	NVDmaNext (pNv, col1);
 	NVDmaNext (pNv, pat0);
@@ -116,7 +116,7 @@ NV50EXASetROP(PixmapPtr pdPix, int alu, Pixel planemask)
 	NV50EXA_LOCALS(pdPix);
 	int rop = NVCopyROP[alu];
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_SET_OPERATION, 1);
+	NVDmaStart(pNv, Nv2D, NV50_2D_SET_OPERATION, 1);
 	if(alu == GXcopy && planemask == ~0) {
 		NVDmaNext (pNv, NV50_2D_SET_OPERATION_SRCCOPY);
 		return;
@@ -124,7 +124,7 @@ NV50EXASetROP(PixmapPtr pdPix, int alu, Pixel planemask)
 		NVDmaNext (pNv, NV50_2D_SET_OPERATION_ROP_AND);
 	}
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_PATTERN_FORMAT, 1);
+	NVDmaStart(pNv, Nv2D, NV50_2D_PATTERN_FORMAT, 1);
 	switch (pdPix->drawable.depth) {
 		case  8: NVDmaNext(pNv, 3); break;
 		case 15: NVDmaNext(pNv, 1); break;
@@ -145,7 +145,7 @@ NV50EXASetROP(PixmapPtr pdPix, int alu, Pixel planemask)
 	}
 
 	if (pNv->currentRop != rop) {
-		NVDmaStart(pNv, NvSub2D, NV50_2D_RASTER_OP, 1);
+		NVDmaStart(pNv, Nv2D, NV50_2D_RASTER_OP, 1);
 		NVDmaNext (pNv, rop);
 		pNv->currentRop = rop;
 	}
@@ -168,7 +168,7 @@ NV50EXAPrepareSolid(PixmapPtr pdPix, int alu, Pixel planemask, Pixel fg)
 		return FALSE;
 	NV50EXASetROP(pdPix, alu, planemask);
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_RECT_UNK580, 3);
+	NVDmaStart(pNv, Nv2D, NV50_2D_RECT_UNK580, 3);
 	NVDmaNext (pNv, 4);
 	NVDmaNext (pNv, fmt);
 	NVDmaNext (pNv, fg);
@@ -181,7 +181,7 @@ NV50EXASolid(PixmapPtr pdPix, int x1, int y1, int x2, int y2)
 {
 	NV50EXA_LOCALS(pdPix);
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_RECT_X1, 4);
+	NVDmaStart(pNv, Nv2D, NV50_2D_RECT_X1, 4);
 	NVDmaNext (pNv, x1);
 	NVDmaNext (pNv, y1);
 	NVDmaNext (pNv, x2);
@@ -223,9 +223,9 @@ NV50EXACopy(PixmapPtr pdPix, int srcX , int srcY,
 {
 	NV50EXA_LOCALS(pdPix);
 
-	NVDmaStart(pNv, NvSub2D, NV50_2D_UNK110, 1);
+	NVDmaStart(pNv, Nv2D, NV50_2D_UNK110, 1);
 	NVDmaNext (pNv, 0);
-	NVDmaStart(pNv, NvSub2D, NV50_2D_BLIT_DST_X, 12);
+	NVDmaStart(pNv, Nv2D, NV50_2D_BLIT_DST_X, 12);
 	NVDmaNext (pNv, dstX);
 	NVDmaNext (pNv, dstY);
 	NVDmaNext (pNv, width);

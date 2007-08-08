@@ -2092,6 +2092,14 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	if (!NVDRIScreenInit(pScrn))
 		return FALSE;
 
+	ret = drmCommandNone(pNv->drm_fd, DRM_NOUVEAU_CARD_INIT);
+	if (ret) {
+		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+			   "Error initialising the nouveau kernel module: %d\n",
+			   ret);
+		return FALSE;
+	}
+
 	/* Allocate and map memory areas we need */
 	if (!NVMapMem(pScrn))
 		return FALSE;

@@ -110,13 +110,13 @@ NVWaitVSync(ScrnInfoPtr pScrn)
 {
     NVPtr pNv = NVPTR(pScrn);
 
-    NVDmaStart(pNv, 5, 0x0000012C, 1);
+    NVDmaStart(pNv, NvImageBlit, 0x0000012C, 1);
     NVDmaNext (pNv, 0);
-    NVDmaStart(pNv, 5, 0x00000134, 1);
+    NVDmaStart(pNv, NvImageBlit, 0x00000134, 1);
     NVDmaNext (pNv, pNv->CRTCnumber);
-    NVDmaStart(pNv, 5, 0x00000100, 1);
+    NVDmaStart(pNv, NvImageBlit, 0x00000100, 1);
     NVDmaNext (pNv, 0);
-    NVDmaStart(pNv, 5, 0x00000130, 1);
+    NVDmaStart(pNv, NvImageBlit, 0x00000130, 1);
     NVDmaNext (pNv, 0);
 }
 
@@ -137,7 +137,7 @@ NVSetPattern(
 {
     NVPtr pNv = NVPTR(pScrn);
 
-    NVDmaStart(pNv, NvSubImagePattern, PATTERN_COLOR_0, 4);
+    NVDmaStart(pNv, NvImagePattern, PATTERN_COLOR_0, 4);
     NVDmaNext (pNv, clr0);
     NVDmaNext (pNv, clr1);
     NVDmaNext (pNv, pat0);
@@ -152,7 +152,7 @@ NVSetRopSolid(ScrnInfoPtr pScrn, CARD32 rop, CARD32 planemask)
     if(planemask != ~0) {
         NVSetPattern(pScrn, 0, planemask, ~0, ~0);
         if(pNv->currentRop != (rop + 32)) {
-           NVDmaStart(pNv, NvSubRop, ROP_SET, 1);
+           NVDmaStart(pNv, NvRop, ROP_SET, 1);
            NVDmaNext (pNv, NVCopyROP_PM[rop]);
            pNv->currentRop = rop + 32;
         }
@@ -160,7 +160,7 @@ NVSetRopSolid(ScrnInfoPtr pScrn, CARD32 rop, CARD32 planemask)
     if (pNv->currentRop != rop) {
         if(pNv->currentRop >= 16)
              NVSetPattern(pScrn, ~0, ~0, ~0, ~0);
-        NVDmaStart(pNv, NvSubRop, ROP_SET, 1);
+        NVDmaStart(pNv, NvRop, ROP_SET, 1);
         NVDmaNext (pNv, NVCopyROP[rop]);
         pNv->currentRop = rop;
     }
@@ -194,7 +194,7 @@ NVSubsequentScreenToScreenCopy(
 {
     NVPtr pNv = NVPTR(pScrn);
 
-    NVDmaStart(pNv, NvSubImageBlit, BLIT_POINT_SRC, 3);
+    NVDmaStart(pNv, NvImageBlit, BLIT_POINT_SRC, 3);
     NVDmaNext (pNv, (y1 << 16) | x1);
     NVDmaNext (pNv, (y2 << 16) | x2);
     NVDmaNext (pNv, (h  << 16) | w);
@@ -216,7 +216,7 @@ NVSetupForSolidFill(
    planemask |= ~0 << pNv->CurrentLayout.depth;
 
    NVSetRopSolid(pScrn, rop, planemask);
-   NVDmaStart(pNv, NvSubRectangle, RECT_SOLID_COLOR, 1);
+   NVDmaStart(pNv, NvRectangle, RECT_SOLID_COLOR, 1);
    NVDmaNext (pNv, color);
 
    pNv->DMAKickoffCallback = NVDmaKickoffCallback;
@@ -227,7 +227,7 @@ NVSubsequentSolidFillRect(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 {
    NVPtr pNv = NVPTR(pScrn);
 
-   NVDmaStart(pNv, NvSubRectangle, RECT_SOLID_RECTS(0), 2);
+   NVDmaStart(pNv, NvRectangle, RECT_SOLID_RECTS(0), 2);
    NVDmaNext (pNv, (x << 16) | y);
    NVDmaNext (pNv, (w << 16) | h);
 
@@ -253,13 +253,13 @@ NVSetupForMono8x8PatternFill (
    else bg |= planemask;
 
    if (pNv->currentRop != (rop + 16)) {
-       NVDmaStart(pNv, NvSubRop, ROP_SET, 1);
+       NVDmaStart(pNv, NvRop, ROP_SET, 1);
        NVDmaNext (pNv, NVPatternROP[rop]);
        pNv->currentRop = rop + 16;
    }
 
    NVSetPattern(pScrn, bg, fg, patternx, patterny);
-   NVDmaStart(pNv, NvSubRectangle, RECT_SOLID_COLOR, 1);
+   NVDmaStart(pNv, NvRectangle, RECT_SOLID_COLOR, 1);
    NVDmaNext (pNv, fg);
 
    pNv->DMAKickoffCallback = NVDmaKickoffCallback;
@@ -275,7 +275,7 @@ NVSubsequentMono8x8PatternFillRect(
 {
    NVPtr pNv = NVPTR(pScrn);
 
-   NVDmaStart(pNv, NvSubRectangle, RECT_SOLID_RECTS(0), 2);
+   NVDmaStart(pNv, NvRectangle, RECT_SOLID_RECTS(0), 2);
    NVDmaNext (pNv, (x << 16) | y);
    NVDmaNext (pNv, (w << 16) | h);
 
@@ -331,7 +331,7 @@ NVSubsequentScanlineCPUToScreenColorExpandFill (
    _remaining = h;
 
    if(_transparent) {
-      NVDmaStart(pNv, NvSubRectangle, RECT_EXPAND_ONE_COLOR_CLIP, 5);
+      NVDmaStart(pNv, NvRectangle, RECT_EXPAND_ONE_COLOR_CLIP, 5);
       NVDmaNext (pNv, (y << 16) | ((x + skipleft) & 0xFFFF));
       NVDmaNext (pNv, ((y + h) << 16) | ((x + w) & 0xFFFF));
       NVDmaNext (pNv, _fg_pixel);
@@ -339,7 +339,7 @@ NVSubsequentScanlineCPUToScreenColorExpandFill (
       NVDmaNext (pNv, (y << 16) | (x & 0xFFFF));
       _color_expand_offset = RECT_EXPAND_ONE_COLOR_DATA(0);
    } else {
-      NVDmaStart(pNv, NvSubRectangle, RECT_EXPAND_TWO_COLOR_CLIP, 7);
+      NVDmaStart(pNv, NvRectangle, RECT_EXPAND_TWO_COLOR_CLIP, 7);
       NVDmaNext (pNv, (y << 16) | ((x + skipleft) & 0xFFFF));
       NVDmaNext (pNv, ((y + h) << 16) | ((x + w) & 0xFFFF));
       NVDmaNext (pNv, _bg_pixel);
@@ -350,7 +350,7 @@ NVSubsequentScanlineCPUToScreenColorExpandFill (
       _color_expand_offset = RECT_EXPAND_TWO_COLOR_DATA(0); 
    }
 
-   NVDmaStart(pNv, NvSubRectangle, _color_expand_offset, _color_expand_dwords);
+   NVDmaStart(pNv, NvRectangle, _color_expand_offset, _color_expand_dwords);
    _storage_buffer[0] = (unsigned char*)&pNv->dmaBase[pNv->dmaCurrent];
 }
 
@@ -362,11 +362,11 @@ NVSubsequentColorExpandScanline(ScrnInfoPtr pScrn, int bufno)
    pNv->dmaCurrent += _color_expand_dwords;
 
    if(--_remaining) {
-       NVDmaStart(pNv, NvSubRectangle, _color_expand_offset, _color_expand_dwords);
+       NVDmaStart(pNv, NvRectangle, _color_expand_offset, _color_expand_dwords);
        _storage_buffer[0] = (unsigned char*)&pNv->dmaBase[pNv->dmaCurrent];
    } else {
        /* hardware bug workaround */
-       NVDmaStart(pNv, NvSubImageBlit, BLIT_POINT_SRC, 1);
+       NVDmaStart(pNv, NvImageBlit, BLIT_POINT_SRC, 1);
        NVDmaNext (pNv, 0);
        NVDmaKickoff(pNv);
    }
@@ -414,7 +414,7 @@ NVSubsequentScanlineImageWriteRect(
 
    NVSync(pScrn);
 
-   NVDmaStart(pNv, NvSubContextSurfaces, SURFACE_PITCH, 2);
+   NVDmaStart(pNv, NvContextSurfaces, SURFACE_PITCH, 2);
    NVDmaNext (pNv, (_image_dstpitch << 16) | image_srcpitch);
    NVDmaNext (pNv, pNv->ScratchBuffer->offset);
 }
@@ -423,7 +423,7 @@ static void NVSubsequentImageWriteScanline(ScrnInfoPtr pScrn, int bufno)
 {
    NVPtr pNv = NVPTR(pScrn);
 
-   NVDmaStart(pNv, NvSubImageBlit, BLIT_POINT_SRC, 3);
+   NVDmaStart(pNv, NvImageBlit, BLIT_POINT_SRC, 3);
    NVDmaNext (pNv, _image_srcpoint);
    NVDmaNext (pNv, _image_dstpoint);
    NVDmaNext (pNv, _image_size);
@@ -433,7 +433,7 @@ static void NVSubsequentImageWriteScanline(ScrnInfoPtr pScrn, int bufno)
       _image_dstpoint += (1 << 16);
       NVSync(pScrn);
    } else {
-      NVDmaStart(pNv, NvSubContextSurfaces, SURFACE_PITCH, 2);
+      NVDmaStart(pNv, NvContextSurfaces, SURFACE_PITCH, 2);
       NVDmaNext (pNv, _image_dstpitch | (_image_dstpitch << 16));
       NVDmaNext (pNv, pNv->FB->offset);
    }
@@ -458,9 +458,9 @@ NVSubsequentSolidHorVertLine(ScrnInfoPtr pScrn, int x, int y, int len, int dir)
 {
     NVPtr pNv = NVPTR(pScrn);
 
-    NVDmaStart(pNv, NvSubSolidLine, LINE_COLOR, 1);
+    NVDmaStart(pNv, NvSolidLine, LINE_COLOR, 1);
     NVDmaNext (pNv, _fg_pixel);
-    NVDmaStart(pNv, NvSubSolidLine, LINE_LINES(0), 2);
+    NVDmaStart(pNv, NvSolidLine, LINE_LINES(0), 2);
     NVDmaNext (pNv, (y << 16) | ( x & 0xffff));
     if(dir == DEGREES_0) {
        NVDmaNext (pNv, (y << 16) | ((x + len) & 0xffff));
@@ -480,9 +480,9 @@ NVSubsequentSolidTwoPointLine(
     NVPtr pNv = NVPTR(pScrn);
     Bool drawLast = !(flags & OMIT_LAST);
 
-    NVDmaStart(pNv, NvSubSolidLine, LINE_COLOR, 1);
+    NVDmaStart(pNv, NvSolidLine, LINE_COLOR, 1);
     NVDmaNext (pNv, _fg_pixel);
-    NVDmaStart(pNv, NvSubSolidLine, LINE_LINES(0), drawLast ? 4 : 2);
+    NVDmaStart(pNv, NvSolidLine, LINE_LINES(0), drawLast ? 4 : 2);
     NVDmaNext (pNv, (y1 << 16) | (x1 & 0xffff));
     NVDmaNext (pNv, (y2 << 16) | (x2 & 0xffff));
     if(drawLast) {
@@ -498,7 +498,7 @@ NVSetClippingRectangle(ScrnInfoPtr pScrn, int x1, int y1, int x2, int y2)
     int h = y2 - y1 + 1;
     int w = x2 - x1 + 1;
 
-    NVDmaStart(pNv, NvSubClipRectangle, CLIP_POINT, 2);
+    NVDmaStart(pNv, NvClipRectangle, CLIP_POINT, 2);
     NVDmaNext (pNv, (y1 << 16) | x1); 
     NVDmaNext (pNv, (h << 16) | w);
 }
@@ -508,7 +508,7 @@ NVDisableClipping(ScrnInfoPtr pScrn)
 {
     NVPtr pNv = NVPTR(pScrn);
 
-    NVDmaStart(pNv, NvSubClipRectangle, CLIP_POINT, 2);
+    NVDmaStart(pNv, NvClipRectangle, CLIP_POINT, 2);
     NVDmaNext (pNv, 0);              
     NVDmaNext (pNv, 0x7FFF7FFF);
 }
