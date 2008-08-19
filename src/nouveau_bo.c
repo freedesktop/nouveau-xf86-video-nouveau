@@ -181,6 +181,14 @@ nouveau_bo_new(struct nouveau_device *dev, uint32_t flags, int align,
 		return ret;
 	}
 
+	if (flags & NOUVEAU_BO_PIN) {
+		ret = nouveau_bo_pin(&nvbo->base, flags);
+		if (ret) {
+			nouveau_bo_del((void *)&nvbo);
+			return ret;
+		}
+	}
+
 	*bo = &nvbo->base;
 	return 0;
 }
@@ -362,9 +370,6 @@ nouveau_bo_set_status(struct nouveau_bo *bo, uint32_t flags)
 	nvbo->map = new_map;
 	if (!nvbo->user)
 		nvbo->sysmem = new_sysmem;
-
-	if (nvbo->handle)
-		nouveau_bo_pin(bo, new_domain);
 
 	return 0;
 }
