@@ -11,7 +11,6 @@ PixmapPtr NVGetDrawablePixmap(DrawablePtr pDraw);
 
 /* in nv_driver.c */
 Bool   NVI2CInit(ScrnInfoPtr pScrn);
-Bool NVMatchModePrivate(DisplayModePtr mode, uint32_t flags);
 
 /* in nv_dri.c */
 Bool NVDRIScreenInit(ScrnInfoPtr pScrn);
@@ -68,30 +67,23 @@ void NVSetStartAddress(NVPtr,CARD32);
 
 /* in nv_shadow.c */
 void NVRefreshArea(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
-void NVRefreshArea8(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
-void NVRefreshArea16(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
-void NVRefreshArea32(ScrnInfoPtr pScrn, int num, BoxPtr pbox);
-void NVPointerMoved(int index, int x, int y);
 
 /* in nv_bios.c */
 unsigned int NVParseBios(ScrnInfoPtr pScrn);
 void call_lvds_script(ScrnInfoPtr pScrn, struct dcb_entry *dcbent, int head, enum LVDS_script script, int pxclk);
+void parse_lvds_manufacturer_table(ScrnInfoPtr pScrn, bios_t *bios, int pxclk);
 void run_tmds_table(ScrnInfoPtr pScrn, struct dcb_entry *dcbent, int head, int pxclk);
 int getMNP_single(ScrnInfoPtr pScrn, struct pll_lims *pll_lim, int clk, int *NM, int *log2P);
 int getMNP_double(ScrnInfoPtr pScrn, struct pll_lims *pll_lim, int clk, int *NM1, int *NM2, int *log2P);
 bool get_pll_limits(ScrnInfoPtr pScrn, uint32_t limit_match, struct pll_lims *pll_lim);
-void setup_edid_dual_link_lvds(ScrnInfoPtr pScrn, int pxclk);
 
 /* nv_crtc.c */
-void NVCrtcSetBase (xf86CrtcPtr crtc, int x, int y, Bool bios_restore);
+void NVCrtcSetBase(xf86CrtcPtr crtc, int x, int y);
 void nv_crtc_init(ScrnInfoPtr pScrn, int crtc_num);
 void NVCrtcLockUnlock(xf86CrtcPtr crtc, Bool lock);
-void NVCrtcWriteCRTC(xf86CrtcPtr crtc, uint32_t reg, uint32_t val);
-void NVCrtcWriteRAMDAC(xf86CrtcPtr crtc, uint32_t reg, uint32_t val);
 
 /* nv_output.c */
 void NvSetupOutputs(ScrnInfoPtr pScrn);
-uint32_t nv_get_clock_from_crtc(ScrnInfoPtr pScrn, RIVA_HW_STATE *state, uint8_t crtc);
 
 /* nv_hw.c */
 uint32_t NVRead(NVPtr pNv, uint32_t reg);

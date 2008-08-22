@@ -35,6 +35,9 @@ NV50SorModeValid(nouveauOutputPtr output, DisplayModePtr mode)
 	if (mode->Clock < 25000)
 		return MODE_CLOCK_LOW;
 
+	if (mode->Flags & V_DBLSCAN)
+		return MODE_NO_DBLESCAN;
+
 	if (mode->HDisplay > output->native_mode->HDisplay || mode->VDisplay > output->native_mode->VDisplay)
 		return MODE_PANEL;
 

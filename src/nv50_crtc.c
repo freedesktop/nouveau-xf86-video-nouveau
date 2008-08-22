@@ -384,7 +384,7 @@ static void
 NV50CrtcShowCursor(nouveauCrtcPtr crtc, Bool forced_lock)
 {
 	ScrnInfoPtr pScrn = crtc->scrn;
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NV50CrtcShowCursor is called for %s.\n", crtc->index ? "CRTC1" : "CRTC0");
+	//xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NV50CrtcShowCursor is called for %s.\n", crtc->index ? "CRTC1" : "CRTC0");
 
 	if (!crtc->modeset_lock)
 		crtc->cursor_visible = TRUE;
@@ -400,7 +400,7 @@ static void
 NV50CrtcHideCursor(nouveauCrtcPtr crtc, Bool forced_lock)
 {
 	ScrnInfoPtr pScrn = crtc->scrn;
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NV50CrtcHideCursor is called for %s.\n", crtc->index ? "CRTC1" : "CRTC0");
+	//xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NV50CrtcHideCursor is called for %s.\n", crtc->index ? "CRTC1" : "CRTC0");
 
 	if (!crtc->modeset_lock)
 		crtc->cursor_visible = FALSE;

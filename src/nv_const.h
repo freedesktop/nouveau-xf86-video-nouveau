@@ -10,26 +10,18 @@
 #define NV_DPMS_CLEARED 0x80
 
 typedef enum {
-	NV_MODE_CONSOLE = (1 << 0),
-	NV_MODE_VGA = (1 << 1)
-} NVModePriv;
-
-typedef enum {
     OPTION_SW_CURSOR,
     OPTION_HW_CURSOR,
     OPTION_NOACCEL,
     OPTION_SHADOW_FB,
-    OPTION_ROTATE,
     OPTION_VIDEO_KEY,
     OPTION_FLAT_PANEL,
     OPTION_FP_DITHER,
-    OPTION_CRTC_NUMBER,
     OPTION_FP_SCALE,
     OPTION_FP_TWEAK,
     OPTION_RANDR12,
     OPTION_SCALING_MODE,
-    OPTION_NEW_RESTORE,
-    OPTION_KMS,
+    OPTION_PREP_FIN_ACCESS
 } NVOpts;
 
 
@@ -38,17 +30,14 @@ static const OptionInfoRec NVOptions[] = {
     { OPTION_HW_CURSOR,         "HWcursor",     OPTV_BOOLEAN,   {0}, FALSE },
     { OPTION_NOACCEL,           "NoAccel",      OPTV_BOOLEAN,   {0}, FALSE },
     { OPTION_SHADOW_FB,         "ShadowFB",     OPTV_BOOLEAN,   {0}, FALSE },
-    { OPTION_ROTATE,		"Rotate",	OPTV_ANYSTR,	{0}, FALSE },
     { OPTION_VIDEO_KEY,		"VideoKey",	OPTV_INTEGER,	{0}, FALSE },
     { OPTION_FLAT_PANEL,	"FlatPanel",	OPTV_BOOLEAN,	{0}, FALSE },
     { OPTION_FP_DITHER, 	"FPDither",	OPTV_BOOLEAN,	{0}, FALSE },
-    //{ OPTION_CRTC_NUMBER,	"CrtcNumber",	OPTV_INTEGER,	{0}, FALSE },
     { OPTION_FP_SCALE,          "FPScale",      OPTV_BOOLEAN,   {0}, FALSE },
     { OPTION_FP_TWEAK,          "FPTweak",      OPTV_INTEGER,   {0}, FALSE },
     { OPTION_RANDR12,	"Randr12",	OPTV_BOOLEAN,	{0}, FALSE },
     { OPTION_SCALING_MODE,	"ScalingMode",	OPTV_STRING,	{0}, FALSE },
-    { OPTION_NEW_RESTORE,	"NewRestore",	OPTV_BOOLEAN,	{0}, FALSE },
-    { OPTION_KMS,	"KMS",	OPTV_BOOLEAN,	{0}, FALSE },
+    { OPTION_PREP_FIN_ACCESS,	"PrepareFinishAccess",	OPTV_BOOLEAN, {0}, FALSE },
     { -1,                       NULL,           OPTV_NONE,      {0}, FALSE }
 };
 

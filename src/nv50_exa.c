@@ -92,6 +92,17 @@ NV50EXA2DSurfaceFormat(PixmapPtr ppix, uint32_t *fmt)
 	return TRUE;
 }
 
+static void NV50EXASetClip(PixmapPtr ppix, int x, int y, int w, int h)
+{
+	NV50EXA_LOCALS(ppix);
+
+	BEGIN_RING(chan, eng2d, NV50_2D_CLIP_X, 4);
+	OUT_RING  (chan, x);
+	OUT_RING  (chan, y);
+	OUT_RING  (chan, w);
+	OUT_RING  (chan, h);
+}
+
 static Bool
 NV50EXAAcquireSurface2D(PixmapPtr ppix, int is_src)
 {
@@ -131,13 +142,8 @@ NV50EXAAcquireSurface2D(PixmapPtr ppix, int is_src)
 	OUT_PIXMAPh(chan, ppix, 0, bo_flags);
 	OUT_PIXMAPl(chan, ppix, 0, bo_flags);
 
-	if (is_src == 0) {
-		BEGIN_RING(chan, eng2d, NV50_2D_CLIP_X, 4);
-		OUT_RING  (chan, 0);
-		OUT_RING  (chan, 0);
-		OUT_RING  (chan, ppix->drawable.width);
-		OUT_RING  (chan, ppix->drawable.height);
-	}
+	if (is_src == 0)
+		NV50EXASetClip(ppix, 0, 0, ppix->drawable.width, ppix->drawable.height);
 
 	return TRUE;
 }
@@ -166,7 +172,7 @@ NV50EXASetROP(PixmapPtr pdpix, int alu, Pixel planemask)
 		OUT_RING  (chan, NV50_2D_OPERATION_SRCCOPY);
 		return;
 	} else {
-		OUT_RING  (chan, NV50_2D_OPERATION_ROP_AND);
+		OUT_RING  (chan, NV50_2D_OPERATION_SRCCOPY_PREMULT);
 	}
 
 	BEGIN_RING(chan, eng2d, NV50_2D_PATTERN_FORMAT, 2);
@@ -182,18 +188,37 @@ NV50EXASetROP(PixmapPtr pdpix, int alu, Pixel planemask)
 	}
 	OUT_RING  (chan, 1);
 
-	if(planemask != ~0) {
+	/* I observed incorrect rendering and found this in a fifo trace. */
+	/* It fixed the one test-case i had, so i'm happy. */
+	if (pdpix->drawable.depth == 32)
+		rop &= 0xF0;
+
+	/* There are 16 alu's. pNv->currentRop stores: */
+	/* 0-15: planemask == ~0 && bpp != 32 */
+	/* 16-31: planemask == ~0 && bpp == 32 */
+	/* 32-47: planemask != ~0 */
+	if (planemask != ~0) {
 		NV50EXASetPattern(pdpix, 0, planemask, ~0, ~0);
 		rop = (rop & 0xf0) | 0x0a;
-	} else
-	if((pNv->currentRop & 0x0f) == 0x0a) {
-		NV50EXASetPattern(pdpix, ~0, ~0, ~0, ~0);
-	}
 
-	if (pNv->currentRop != rop) {
-		BEGIN_RING(chan, eng2d, NV50_2D_ROP, 1);
-		OUT_RING  (chan, rop);
-		pNv->currentRop = rop;
+		if (pNv->currentRop != (alu + 32)) {
+			BEGIN_RING(chan, eng2d, NV50_2D_ROP, 1);
+			OUT_RING  (chan, rop);
+			pNv->currentRop = alu + 32;
+		}
+	} else {
+		/* This makes no sense for planemask != ~0, as that already masks with 0xA. */
+		if (pdpix->drawable.depth == 32)
+			alu += 16;
+
+		if (pNv->currentRop != alu) {
+			if (pNv->currentRop >= 32)
+				NV50EXASetPattern(pdpix, ~0, ~0, ~0, ~0);
+
+			BEGIN_RING(chan, eng2d, NV50_2D_ROP, 1);
+			OUT_RING  (chan, rop);
+			pNv->currentRop = alu;
+		}
 	}
 }
 
@@ -202,6 +227,8 @@ NV50EXAPrepareSolid(PixmapPtr pdpix, int alu, Pixel planemask, Pixel fg)
 {
 	NV50EXA_LOCALS(pdpix);
 	uint32_t fmt;
+
+	planemask |= ~0 << pdpix->drawable.bitsPerPixel;
 
 	if (!NV50EXA2DSurfaceFormat(pdpix, &fmt))
 		NOUVEAU_FALLBACK("rect format\n");
@@ -242,6 +269,8 @@ NV50EXAPrepareCopy(PixmapPtr pspix, PixmapPtr pdpix, int dx, int dy,
 		   int alu, Pixel planemask)
 {
 	NV50EXA_LOCALS(pdpix);
+
+	planemask |= ~0 << pdpix->drawable.bitsPerPixel;
 
 	if (!NV50EXAAcquireSurface2D(pspix, 1))
 		NOUVEAU_FALLBACK("src pixmap\n");
@@ -298,6 +327,9 @@ NV50EXAUploadSIFC(const char *src, int src_pitch,
 		NOUVEAU_FALLBACK("hostdata format\n");
 	if (!NV50EXAAcquireSurface2D(pdpix, 0))
 		NOUVEAU_FALLBACK("dest pixmap\n");
+
+	/* If the pitch isn't aligned to a dword, then you can get corruption at the end of a line. */
+	NV50EXASetClip(pdpix, x, y, w, h);
 
 	BEGIN_RING(chan, eng2d, NV50_2D_OPERATION, 1);
 	OUT_RING  (chan, NV50_2D_OPERATION_SRCCOPY);
@@ -491,7 +523,7 @@ NV50EXATexture(PixmapPtr ppix, PicturePtr ppict, unsigned unit)
 			 NV50TIC_0_0_FMT_8);
 		break;
 	default:
-		NOUVEAU_FALLBACK("invalid picture format\n");
+		NOUVEAU_FALLBACK("invalid picture format, this SHOULD NOT HAPPEN. Expect trouble.\n");
 	}
 	OUT_PIXMAPl(chan, ppix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
 	OUT_RING  (chan, 0xd0005000);
@@ -583,7 +615,7 @@ NV50EXABlend(PixmapPtr ppix, PicturePtr ppict, int op, int component_alpha)
 		}
 	}
 
-	if (b->src_alpha && component_alpha) {
+	if (b->src_alpha && (component_alpha || ppict->format == PICT_a8)) {
 		if (dblend == BF(SRC_ALPHA))
 			dblend = BF(SRC_COLOR);
 		else
@@ -591,7 +623,7 @@ NV50EXABlend(PixmapPtr ppix, PicturePtr ppict, int op, int component_alpha)
 			dblend = BF(ONE_MINUS_SRC_COLOR);
 	}
 
-	if (b->src_blend == BF(ONE) && b->dst_blend == BF(ZERO)) {
+	if (sblend == BF(ONE) && dblend == BF(ZERO)) {
 		BEGIN_RING(chan, tesla, NV50TCL_BLEND_ENABLE(0), 1);
 		OUT_RING  (chan, 0);
 	} else {
@@ -625,7 +657,7 @@ NV50EXACheckComposite(int op,
 		if (pmpict->componentAlpha &&
 		    PICT_FORMAT_RGB(pmpict->format) &&
 		    NV50EXABlendOp[op].src_alpha &&
-		    NV50EXABlendOp[op].src_blend != 0x4000)
+		    NV50EXABlendOp[op].src_blend != BF(ZERO))
 			NOUVEAU_FALLBACK("component-alpha not supported\n");
 
 		if (!NV50EXACheckTexture(pmpict))
@@ -692,6 +724,9 @@ NV50EXAPrepareComposite(int op,
 	BEGIN_RING(chan, tesla, 0x1458, 1);
 	OUT_RING  (chan, 0x203);
 
+	BEGIN_RING(chan, tesla, NV50TCL_VERTEX_BEGIN, 1);
+	OUT_RING  (chan, NV50TCL_VERTEX_BEGIN_QUADS);
+
 	return TRUE;
 }
 
@@ -737,8 +772,6 @@ NV50EXAComposite(PixmapPtr pdpix, int sx, int sy, int mx, int my,
 			 state->unit[0].width, state->unit[0].height,
 			 &sX3, &sY3);
 
-	BEGIN_RING(chan, tesla, NV50TCL_VERTEX_BEGIN, 1);
-	OUT_RING  (chan, NV50TCL_VERTEX_BEGIN_QUADS);
 	if (state->have_mask) {
 		float mX0, mX1, mX2, mX3, mY0, mY1, mY2, mY3;
 
@@ -765,12 +798,14 @@ NV50EXAComposite(PixmapPtr pdpix, int sx, int sy, int mx, int my,
 		VTX1s(pNv, sX2, sY2, dX1, dY1);
 		VTX1s(pNv, sX3, sY3, dX0, dY1);
 	}
-	BEGIN_RING(chan, tesla, NV50TCL_VERTEX_END, 1);
-	OUT_RING  (chan, 0);
 }
 
 void
 NV50EXADoneComposite(PixmapPtr pdpix)
 {
+	NV50EXA_LOCALS(pdpix);
+
+	BEGIN_RING(chan, tesla, NV50TCL_VERTEX_END, 1);
+	OUT_RING  (chan, 0);
 }
 

@@ -167,9 +167,9 @@ nv50_crtc_commit(xf86CrtcPtr crtc)
 static void 
 nv50_crtc_show_cursor(xf86CrtcPtr crtc)
 {
-	ScrnInfoPtr pScrn = crtc->scrn;
+	//ScrnInfoPtr pScrn = crtc->scrn;
 	NV50CrtcPrivatePtr nv_crtc = crtc->driver_private;
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv50_crtc_show_cursor is called for %s.\n", nv_crtc->crtc->index ? "CRTC1" : "CRTC0");
+	//xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv50_crtc_show_cursor is called for %s.\n", nv_crtc->crtc->index ? "CRTC1" : "CRTC0");
 
 	nv_crtc->crtc->ShowCursor(nv_crtc->crtc, FALSE);
 }
@@ -177,9 +177,9 @@ nv50_crtc_show_cursor(xf86CrtcPtr crtc)
 static void
 nv50_crtc_hide_cursor(xf86CrtcPtr crtc)
 {
-	ScrnInfoPtr pScrn = crtc->scrn;
+	//ScrnInfoPtr pScrn = crtc->scrn;
 	NV50CrtcPrivatePtr nv_crtc = crtc->driver_private;
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv50_crtc_hide_cursor is called for %s.\n", nv_crtc->crtc->index ? "CRTC1" : "CRTC0");
+	//xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv50_crtc_hide_cursor is called for %s.\n", nv_crtc->crtc->index ? "CRTC1" : "CRTC0");
 
 	nv_crtc->crtc->HideCursor(nv_crtc->crtc, FALSE);
 }
@@ -195,9 +195,9 @@ nv50_crtc_set_cursor_position(xf86CrtcPtr crtc, int x, int y)
 static void
 nv50_crtc_load_cursor_argb(xf86CrtcPtr crtc, CARD32 *src)
 {
-	ScrnInfoPtr pScrn = crtc->scrn;
+	//ScrnInfoPtr pScrn = crtc->scrn;
 	NV50CrtcPrivatePtr nv_crtc = crtc->driver_private;
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv50_crtc_load_cursor_argb is called for %s.\n", nv_crtc->crtc->index ? "CRTC1" : "CRTC0");
+	//xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv50_crtc_load_cursor_argb is called for %s.\n", nv_crtc->crtc->index ? "CRTC1" : "CRTC0");
 
 	nv_crtc->crtc->LoadCursor(nv_crtc->crtc, TRUE, (uint32_t *) src);
 }
@@ -496,9 +496,12 @@ nv50_output_get_modes(xf86OutputPtr output)
 		nv_output->output->crtc->native_mode = NULL;
 
 	/* typically only LVDS will hit this code path. */
-	if (!ddc_modes)
-		if (pNv->VBIOS.fp.native_mode)
+	if (!ddc_modes) {
+		if (pNv->VBIOS.fp.native_mode && nv_output->output->type == OUTPUT_LVDS) {
 			ddc_modes = xf86DuplicateMode(pNv->VBIOS.fp.native_mode);
+			xf86DrvMsg(pScrn->scrnIndex, X_WARNING, "LVDS: Using a bios mode, which should work, if it doesn't please report.\n");
+		}
+	}
 
 	if (!ddc_modes && nv_output->output->type == OUTPUT_LVDS) {
 		xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "LVDS and no modes found, bailing out.\n");
@@ -775,5 +778,13 @@ nv50_output_create(ScrnInfoPtr pScrn)
 
 		output->possible_crtcs = nv_output->output->allowed_crtc;
 		output->possible_clones = 0;
+
+		if (nv_output->output->type == OUTPUT_TMDS || nv_output->output->type == OUTPUT_LVDS) {
+			output->doubleScanAllowed = false;
+			output->interlaceAllowed = false;
+		} else {
+			output->doubleScanAllowed = true;
+			output->interlaceAllowed = true;
+		}
 	}
 }

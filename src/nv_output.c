@@ -209,19 +209,21 @@ static void nv_output_save(xf86OutputPtr output)
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv_output_save is called.\n");
 
-	if (pNv->twoHeads && nv_output->type == OUTPUT_ANALOG)
+	if (pNv->twoHeads && nv_output->dcb->type == OUTPUT_ANALOG)
 		nv_output->restore.output = NVReadRAMDAC(pNv, 0, NV_RAMDAC_OUTPUT + nv_output_ramdac_offset(output));
-	if (nv_output->type == OUTPUT_TMDS || nv_output->type == OUTPUT_LVDS)
+	if (nv_output->dcb->type == OUTPUT_TMDS || nv_output->dcb->type == OUTPUT_LVDS)
 		nv_output->restore.head = nv_get_digital_bound_head(pNv, nv_output->dcb->or);
 }
 
-uint32_t nv_get_clock_from_crtc(ScrnInfoPtr pScrn, RIVA_HW_STATE *state, uint8_t crtc)
+static uint32_t nv_get_clock_from_crtc(ScrnInfoPtr pScrn, RIVA_HW_STATE *state, uint8_t crtc)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	struct pll_lims pll_lim;
 	uint32_t vplla = state->crtc_reg[crtc].vpll_a;
 	uint32_t vpllb = state->crtc_reg[crtc].vpll_b;
-	bool nv40_single = pNv->Architecture == 0x40 && ((!crtc && state->reg580 & NV_RAMDAC_580_VPLL1_ACTIVE) || (crtc && state->reg580 & NV_RAMDAC_580_VPLL2_ACTIVE));
+	bool nv40_single = pNv->Architecture == 0x40 &&
+			   ((!crtc && state->reg580 & NV_RAMDAC_580_VPLL1_ACTIVE) ||
+			    (crtc && state->reg580 & NV_RAMDAC_580_VPLL2_ACTIVE));
 
 	if (!get_pll_limits(pScrn, crtc ? VPLL2 : VPLL1, &pll_lim))
 		return 0;
@@ -234,17 +236,21 @@ static void nv_output_restore(xf86OutputPtr output)
 	ScrnInfoPtr pScrn = output->scrn;
 	NVPtr pNv = NVPTR(pScrn);
 	NVOutputPrivatePtr nv_output = output->driver_private;
+	int head = nv_output->restore.head;
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv_output_restore is called.\n");
 
-	if (pNv->twoHeads && nv_output->type == OUTPUT_ANALOG)
-		NVWriteRAMDAC(pNv, 0, NV_RAMDAC_OUTPUT + nv_output_ramdac_offset(output), nv_output->restore.output);
-	if (nv_output->type == OUTPUT_LVDS)
-		call_lvds_script(pScrn, nv_output->dcb, nv_output->restore.head, LVDS_PANEL_ON, nv_output->native_mode->Clock);
-	if (nv_output->type == OUTPUT_TMDS) {
-		uint32_t clock = nv_get_clock_from_crtc(pScrn, &pNv->SavedReg, nv_output->restore.head);
+	if (pNv->twoHeads && nv_output->dcb->type == OUTPUT_ANALOG)
+		NVWriteRAMDAC(pNv, 0,
+			      NV_RAMDAC_OUTPUT + nv_output_ramdac_offset(output),
+			      nv_output->restore.output);
+	if (nv_output->dcb->type == OUTPUT_LVDS)
+		call_lvds_script(pScrn, nv_output->dcb, head, LVDS_PANEL_ON,
+				 nv_output->native_mode->Clock);
+	if (nv_output->dcb->type == OUTPUT_TMDS) {
+		int clock = nv_get_clock_from_crtc(pScrn, &pNv->SavedReg, head);
 
-		run_tmds_table(pScrn, nv_output->dcb, nv_output->restore.head, clock);
+		run_tmds_table(pScrn, nv_output->dcb, head, clock);
 	}
 
 	nv_output->last_dpms = NV_DPMS_CLEARED;
@@ -260,17 +266,18 @@ static int nv_output_mode_valid(xf86OutputPtr output, DisplayModePtr mode)
 	if (!output->interlaceAllowed && mode->Flags & V_INTERLACE)
 		return MODE_NO_INTERLACE;
 
-	if (nv_output->type == OUTPUT_ANALOG) {
+	if (nv_output->dcb->type == OUTPUT_ANALOG) {
 		if (mode->Clock > (pNv->twoStagePLL ? 400000 : 350000))
 			return MODE_CLOCK_HIGH;
 		if (mode->Clock < 12000)
 			return MODE_CLOCK_LOW;
 	}
-	if (nv_output->type == OUTPUT_LVDS || nv_output->type == OUTPUT_TMDS)
+	if (nv_output->dcb->type == OUTPUT_LVDS || nv_output->dcb->type == OUTPUT_TMDS)
 		/* No modes > panel's native res */
-		if (mode->HDisplay > nv_output->fpWidth || mode->VDisplay > nv_output->fpHeight)
+		if (mode->HDisplay > nv_output->native_mode->HDisplay ||
+		    mode->VDisplay > nv_output->native_mode->VDisplay)
 			return MODE_PANEL;
-	if (nv_output->type == OUTPUT_TMDS) {
+	if (nv_output->dcb->type == OUTPUT_TMDS) {
 		if (nv_output->dcb->duallink_possible) {
 			if (mode->Clock > 330000) /* 2x165 MHz */
 				return MODE_CLOCK_HIGH;
@@ -293,7 +300,8 @@ nv_output_mode_fixup(xf86OutputPtr output, DisplayModePtr mode,
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv_output_mode_fixup is called.\n");
 
 	/* For internal panels and gpu scaling on DVI we need the native mode */
-	if ((nv_output->type == OUTPUT_LVDS || (nv_output->type == OUTPUT_TMDS && nv_output->scaling_mode != SCALE_PANEL))) {
+	if (nv_output->dcb->type == OUTPUT_LVDS ||
+	    (nv_output->dcb->type == OUTPUT_TMDS && nv_output->scaling_mode != SCALE_PANEL)) {
 		adjusted_mode->HDisplay = nv_output->native_mode->HDisplay;
 		adjusted_mode->HSkew = nv_output->native_mode->HSkew;
 		adjusted_mode->HSyncStart = nv_output->native_mode->HSyncStart;
@@ -323,14 +331,14 @@ nv_output_mode_set(xf86OutputPtr output, DisplayModePtr mode, DisplayModePtr adj
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "nv_output_mode_set is called.\n");
 
-	if (pNv->twoHeads && nv_output->type == OUTPUT_ANALOG)
+	if (pNv->twoHeads && nv_output->dcb->type == OUTPUT_ANALOG)
 		/* bit 16-19 are bits that are set on some G70 cards,
 		 * but don't seem to have much effect */
 		NVWriteRAMDAC(pNv, 0, NV_RAMDAC_OUTPUT + nv_output_ramdac_offset(output),
 			      nv_crtc->head << 8 | NV_RAMDAC_OUTPUT_DAC_ENABLE);
-	if (nv_output->type == OUTPUT_TMDS)
+	if (nv_output->dcb->type == OUTPUT_TMDS)
 		run_tmds_table(pScrn, nv_output->dcb, nv_crtc->head, adjusted_mode->Clock);
-	else if (nv_output->type == OUTPUT_LVDS)
+	else if (nv_output->dcb->type == OUTPUT_LVDS)
 		call_lvds_script(pScrn, nv_output->dcb, nv_crtc->head, LVDS_RESET, adjusted_mode->Clock);
 
 	/* This could use refinement for flatpanels, but it should work this way */
@@ -353,11 +361,11 @@ nv_get_edid(xf86OutputPtr output)
 	if (!ddc_mon)
 		return NULL;
 
-	if (ddc_mon->features.input_type && (nv_output->type == OUTPUT_ANALOG))
+	if (ddc_mon->features.input_type && nv_output->dcb->type == OUTPUT_ANALOG)
 		goto invalid;
 
-	if ((!ddc_mon->features.input_type) && (nv_output->type == OUTPUT_TMDS ||
-				nv_output->type == OUTPUT_LVDS))
+	if (!ddc_mon->features.input_type && (nv_output->dcb->type == OUTPUT_TMDS ||
+					      nv_output->dcb->type == OUTPUT_LVDS))
 		goto invalid;
 
 	return ddc_mon;
@@ -495,22 +503,22 @@ nv_output_get_modes(xf86OutputPtr output, xf86MonPtr mon)
 
 	ddc_modes = xf86OutputGetEDIDModes(output);
 
-	if (nv_output->type == OUTPUT_TMDS || nv_output->type == OUTPUT_LVDS) {
+	if (nv_output->dcb->type == OUTPUT_TMDS || nv_output->dcb->type == OUTPUT_LVDS) {
+		int max_h_active = 0, max_v_active = 0;
 		int i;
 		DisplayModePtr mode;
 
-		nv_output->fpHeight = nv_output->fpWidth = 0;
 		for (i = 0; i < DET_TIMINGS; i++) {
 			/* We only look at detailed timings atm */
 			if (mon->det_mon[i].type != DT)
 				continue;
 			/* Selecting only based on width ok? */
-			if (mon->det_mon[i].section.d_timings.h_active > nv_output->fpWidth) {
-				nv_output->fpWidth = mon->det_mon[i].section.d_timings.h_active;
-				nv_output->fpHeight = mon->det_mon[i].section.d_timings.v_active;
+			if (mon->det_mon[i].section.d_timings.h_active > max_h_active) {
+				max_h_active = mon->det_mon[i].section.d_timings.h_active;
+				max_v_active = mon->det_mon[i].section.d_timings.v_active;
 			}
 		}
-		if (!(nv_output->fpWidth && nv_output->fpHeight)) {
+		if (!(max_h_active && max_v_active)) {
 			xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "No EDID detailed timings available, bailing out.\n");
 			return NULL;
 		}
@@ -521,8 +529,8 @@ nv_output_get_modes(xf86OutputPtr output, xf86MonPtr mon)
 		}
 
 		for (mode = ddc_modes; mode != NULL; mode = mode->next) {
-			if (mode->HDisplay == nv_output->fpWidth &&
-				mode->VDisplay == nv_output->fpHeight) {
+			if (mode->HDisplay == max_h_active &&
+				mode->VDisplay == max_v_active) {
 				/* Take the preferred mode when it exists. */
 				if (mode->type & M_T_PREFERRED) {
 					nv_output->native_mode = xf86DuplicateMode(mode);
@@ -539,8 +547,14 @@ nv_output_get_modes(xf86OutputPtr output, xf86MonPtr mon)
 		}
 	}
 
-	if (nv_output->type == OUTPUT_LVDS)
-		setup_edid_dual_link_lvds(pScrn, nv_output->native_mode->Clock);
+	if (nv_output->dcb->type == OUTPUT_LVDS) {
+		static bool dual_link_correction_done = false;
+
+		if (!dual_link_correction_done) {
+			parse_lvds_manufacturer_table(pScrn, &NVPTR(pScrn)->VBIOS, nv_output->native_mode->Clock);
+			dual_link_correction_done = true;
+		}
+	}
 
 	return ddc_modes;
 }
@@ -611,7 +625,7 @@ static void nv_digital_output_prepare_sel_clk(xf86OutputPtr output)
 	 * 	and which bit-pair to use, is unclear on nv40 (for earlier cards, the fp table
 	 * 	entry has the necessary info)
 	 */
-	if (nv_output->type == OUTPUT_LVDS && pNv->SavedReg.sel_clk & 0xf0) {
+	if (nv_output->dcb->type == OUTPUT_LVDS && pNv->SavedReg.sel_clk & 0xf0) {
 		int shift = (pNv->SavedReg.sel_clk & 0x50) ? 0 : 1;
 
 		state->sel_clk &= ~0xf0;
@@ -633,12 +647,12 @@ nv_output_prepare(xf86OutputPtr output)
 	output->funcs->dpms(output, DPMSModeOff);
 
 	/* calculate some output specific CRTC regs now, so that they can be written in nv_crtc_set_mode */
-	if (nv_output->type == OUTPUT_LVDS || nv_output->type == OUTPUT_TMDS)
+	if (nv_output->dcb->type == OUTPUT_LVDS || nv_output->dcb->type == OUTPUT_TMDS)
 		nv_digital_output_prepare_sel_clk(output);
 
 	/* Some NV4x have unknown values (0x3f, 0x50, 0x54, 0x6b, 0x79, 0x7f etc.) which we don't alter */
 	if (!(regp->CRTC[NV_VGA_CRTCX_LCD] & 0x44)) {
-		if (nv_output->type == OUTPUT_LVDS || nv_output->type == OUTPUT_TMDS) {
+		if (nv_output->dcb->type == OUTPUT_LVDS || nv_output->dcb->type == OUTPUT_TMDS) {
 			regp->CRTC[NV_VGA_CRTCX_LCD] &= ~0x30;
 			regp->CRTC[NV_VGA_CRTCX_LCD] |= 0x3;
 			if (nv_crtc->head == 0)
@@ -784,7 +798,7 @@ nv_digital_output_set_property(xf86OutputPtr output, Atom property,
 			return FALSE;
 
 		/* LVDS must always use gpu scaling. */
-		if (ret == SCALE_PANEL && nv_output->type == OUTPUT_LVDS)
+		if (ret == SCALE_PANEL && nv_output->dcb->type == OUTPUT_LVDS)
 			return FALSE;
 
 		nv_output->scaling_mode = ret;
@@ -862,12 +876,6 @@ nv_lvds_output_get_modes(xf86OutputPtr output)
 		return nv_output_get_modes(output, edid_mon);
 	}
 
-	nv_output->fpWidth = pNv->VBIOS.fp.native_mode->HDisplay;
-	nv_output->fpHeight = pNv->VBIOS.fp.native_mode->VDisplay;
-
-	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Panel size is %u x %u\n",
-		nv_output->fpWidth, nv_output->fpHeight);
-
 	if (nv_output->native_mode)
 		xfree(nv_output->native_mode);
 	nv_output->native_mode = xf86DuplicateMode(pNv->VBIOS.fp.native_mode);
@@ -909,13 +917,12 @@ nv_add_output(ScrnInfoPtr pScrn, struct dcb_entry *dcbent, const xf86OutputFuncs
 		NV_I2CInit(pScrn, &pNv->pI2CBus[dcbent->i2c_index], pNv->dcb_table.i2c_read[dcbent->i2c_index], xstrdup(outputname));
 	nv_output->pDDCBus = pNv->pI2CBus[dcbent->i2c_index];
 	nv_output->dcb = dcbent;
-	nv_output->type = dcbent->type;
 	nv_output->last_dpms = NV_DPMS_CLEARED;
 
-	nv_output->dithering = (pNv->FPDither || (nv_output->type == OUTPUT_LVDS && !pNv->VBIOS.fp.if_is_24bit));
+	nv_output->dithering = (pNv->FPDither || (nv_output->dcb->type == OUTPUT_LVDS && !pNv->VBIOS.fp.if_is_24bit));
 	if (pNv->fpScaler) /* GPU Scaling */
 		nv_output->scaling_mode = SCALE_ASPECT;
-	else if (nv_output->type == OUTPUT_LVDS)
+	else if (nv_output->dcb->type == OUTPUT_LVDS)
 		nv_output->scaling_mode = SCALE_NOSCALE;
 	else
 		nv_output->scaling_mode = SCALE_PANEL;
@@ -926,7 +933,7 @@ nv_add_output(ScrnInfoPtr pScrn, struct dcb_entry *dcbent, const xf86OutputFuncs
 	}
 
 	output->possible_crtcs = dcbent->heads;
-	if (nv_output->type == OUTPUT_LVDS || nv_output->type == OUTPUT_TMDS) {
+	if (nv_output->dcb->type == OUTPUT_LVDS || nv_output->dcb->type == OUTPUT_TMDS) {
 		output->doubleScanAllowed = false;
 		output->interlaceAllowed = false;
 	} else {

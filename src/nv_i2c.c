@@ -80,11 +80,43 @@ NVI2CPutBits(I2CBusPtr b, int clock, int data)
 		NVWriteVgaCrtc(pNv, 0, b->DriverPrivate.uval + 1, val);
 }
 
+static uint32_t NV50_GetI2CPort(ScrnInfoPtr pScrn, int index)
+{
+	uint32_t reg;
+
+	switch (index) {
+		case 0:
+			reg = NV50_PCONNECTOR_I2C_PORT_0;
+			break;
+		case 1:
+			reg = NV50_PCONNECTOR_I2C_PORT_1;
+			break;
+		case 2:
+			reg = NV50_PCONNECTOR_I2C_PORT_2;
+			break;
+		case 3:
+			reg = NV50_PCONNECTOR_I2C_PORT_3;
+			break;
+		case 4:
+			reg = NV50_PCONNECTOR_I2C_PORT_4;
+			break;
+		case 5:
+			reg = NV50_PCONNECTOR_I2C_PORT_5;
+			break;
+		default:
+			xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "Invalid i2c port number %d, defaulting to 0.\n", index);
+			reg = NV50_PCONNECTOR_I2C_PORT_0;
+			break;
+	}
+
+	return reg;
+}
+
 static void NV50_I2CPutBits(I2CBusPtr b, int clock, int data)
 {
 	NVPtr pNv = NVPTR(xf86Screens[b->scrnIndex]);
 
-	NVWrite(pNv, NV50_CONNECTOR_I2C_PORT(b->DriverPrivate.val), (4 | clock | data << 1));
+	NVWrite(pNv, NV50_GetI2CPort(xf86Screens[b->scrnIndex], b->DriverPrivate.val), (4 | clock | data << 1));
 }
 
 static void NV50_I2CGetBits(I2CBusPtr b, int *clock, int *data)
@@ -92,7 +124,7 @@ static void NV50_I2CGetBits(I2CBusPtr b, int *clock, int *data)
 	NVPtr pNv = NVPTR(xf86Screens[b->scrnIndex]);
 	unsigned char val;
 
-	val = NVRead(pNv, NV50_CONNECTOR_I2C_PORT(b->DriverPrivate.val));
+	val = NVRead(pNv, NV50_GetI2CPort(xf86Screens[b->scrnIndex], b->DriverPrivate.val));
 	*clock = !!(val & 1);
 	*data = !!(val & 2);
 }

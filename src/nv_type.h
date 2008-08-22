@@ -168,7 +168,6 @@ typedef struct _nv_crtc_reg
 	uint32_t nv10_cursync;
 	uint32_t fp_control;
 	uint32_t dither;
-	bool vpll_changed;
 	uint32_t vpll_a;
 	uint32_t vpll_b;
 } NVCrtcRegRec, *NVCrtcRegPtr;
@@ -235,12 +234,9 @@ typedef enum {
 } ValidOutputResource;
 
 typedef struct _NVOutputPrivateRec {
-	uint8_t last_dpms; /* pre-NV50 */
+	uint8_t last_dpms;
 	I2CBusPtr pDDCBus;
-	NVOutputType type;
 	struct dcb_entry *dcb;
-	uint32_t fpWidth;
-	uint32_t fpHeight;
 	DisplayModePtr native_mode;
 	uint8_t scaling_mode;
 	bool dithering;
@@ -299,10 +295,13 @@ typedef struct {
 	uint16_t pll_limit_tbl_ptr;
 	uint16_t ram_restrict_tbl_ptr;
 
+	uint8_t digital_min_front_porch;
+
 	struct {
 		DisplayModePtr native_mode;
 		uint8_t *edid;
 		uint16_t lvdsmanufacturerpointer;
+		uint16_t fpxlatemanufacturertableptr;
 		uint16_t xlated_entry;
 		bool power_off_for_reset;
 		bool reset_after_pclk_change;
@@ -341,16 +340,6 @@ enum LVDS_script {
 	LVDS_PANEL_ON,
 	LVDS_PANEL_OFF
 };
-
-typedef struct {
-	Bool vga_mode;
-	uint8_t depth; /* mode related */
-	uint8_t bpp; /* pitch related */
-	uint16_t x_res;
-	uint16_t y_res;
-	Bool enabled;
-	uint32_t fb_start;
-} NVConsoleMode;
 
 typedef struct _NVRec *NVPtr;
 typedef struct _NVRec {
@@ -418,10 +407,8 @@ typedef struct _NVRec {
     uint8_t cur_head;
     ExaDriverPtr	EXADriverPtr;
     xf86CursorInfoPtr   CursorInfoRec;
-    void		(*PointerMoved)(int index, int x, int y);
     ScreenBlockHandlerProcPtr BlockHandler;
     CloseScreenProcPtr  CloseScreen;
-    int			Rotate;
     /* Cursor */
     CARD32              curFg, curBg;
     CARD32              curImage[256];
@@ -459,14 +446,12 @@ typedef struct _NVRec {
 
     Bool                WaitVSyncPossible;
     Bool                BlendingPossible;
-    Bool                RandRRotation;
     DRIInfoPtr          pDRIInfo;
     drmVersionPtr       pLibDRMVersion;
     drmVersionPtr       pKernelDRMVersion;
 
 	Bool randr12_enable;
 	Bool kms_enable;
-	Bool new_restore;
 
 	I2CBusPtr           pI2CBus[MAX_NUM_DCB_ENTRIES];
 
@@ -480,8 +465,6 @@ typedef struct _NVRec {
 		unsigned char i2c_read[MAX_NUM_DCB_ENTRIES];
 		unsigned char i2c_write[MAX_NUM_DCB_ENTRIES];
 	} dcb_table;
-
-	NVConsoleMode console_mode[2];
 
 	nouveauCrtcPtr crtc[2];
 	nouveauOutputPtr output; /* this a linked list. */

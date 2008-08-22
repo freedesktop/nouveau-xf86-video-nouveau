@@ -175,11 +175,8 @@ nv_window_belongs_to_crtc(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 {
 	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
 	NVPtr pNv = NVPTR(pScrn);
-	xf86CrtcPtr crtc;
 	int i;
-	unsigned int mask;
-
-	mask = 0;
+	unsigned int mask = 0;
 
 	if (!pNv->randr12_enable) {
 		/*
@@ -195,7 +192,7 @@ nv_window_belongs_to_crtc(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 	}
 
 	for (i = 0; i < xf86_config->num_crtc; i++) {
-		crtc = xf86_config->crtc[i];
+		xf86CrtcPtr crtc = xf86_config->crtc[i];
 
 		if (!crtc->enabled)
 			continue;
@@ -1272,9 +1269,11 @@ CPU_copy:
 					    src_w, src_h, drw_w, drw_h,
 					    clipBoxes);
 		} else {
-			unsigned uvoffset = 0;
+			unsigned uvoffset;
 
 			if (action_flags & (IS_YUY2 | CONVERT_TO_YUY2))
+				uvoffset = 0;
+			else
 				uvoffset = offset + nlines * dstPitch;
 
 			NV10PutOverlayImage(pScrn, pPriv->video_mem, offset,
