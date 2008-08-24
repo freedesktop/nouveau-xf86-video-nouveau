@@ -32,7 +32,7 @@ nouveau_channel_alloc(struct nouveau_device *dev, uint32_t fb_ctxdma,
 {
 	struct nouveau_device_priv *nvdev = nouveau_device(dev);
 	struct nouveau_channel_priv *nvchan;
-	int ret;
+	int ret, i;
 
 	if (!nvdev || !chan || *chan)
 	    return -EINVAL;
@@ -58,6 +58,19 @@ nouveau_channel_alloc(struct nouveau_device *dev, uint32_t fb_ctxdma,
 		    	      &nvchan->base.gart)) {
 		nouveau_channel_free((void *)&nvchan);
 		return -EINVAL;
+	}
+
+	/* Mark all DRM-assigned subchannels as in-use */
+	for (i = 0; i < nvchan->drm.nr_subchan; i++) {
+		struct nouveau_grobj_priv *gr = calloc(1, sizeof(*gr));
+
+		gr->base.bound = NOUVEAU_GROBJ_BOUND_EXPLICIT;
+		gr->base.subc = i;
+		gr->base.handle = nvchan->drm.subchan[i].handle;
+		gr->base.grclass = nvchan->drm.subchan[i].grclass;
+		gr->base.channel = &nvchan->base;
+
+		nvchan->base.subc[i].gr = &gr->base;
 	}
 
 	ret = drmMap(nvdev->fd, nvchan->drm.notifier, nvchan->drm.notifier_size,
@@ -90,21 +103,21 @@ nouveau_channel_alloc(struct nouveau_device *dev, uint32_t fb_ctxdma,
 			break;
 		}
 
-		ret = nouveau_grobj_alloc(&nvchan->base, 0xbeef3901, m2mf,
+		ret = nouveau_grobj_alloc(&nvchan->base, 0xbeef3904, m2mf,
 					  &nvchan->fence_grobj);
 		if (ret) {
 			nouveau_channel_free((void *)&nvchan);
 			return ret;
 		}
 
-		ret = nouveau_notifier_alloc(&nvchan->base, 0xbeef3902, 1,
+		ret = nouveau_notifier_alloc(&nvchan->base, 0xbeef3905, 1,
 					     &nvchan->fence_ntfy);
 		if (ret) {
 			nouveau_channel_free((void *)&nvchan);
 			return ret;
 		}
 
-		BIND_RING (&nvchan->base, nvchan->fence_grobj, 0);
+		BIND_RING (&nvchan->base, nvchan->fence_grobj, 1);
 		BEGIN_RING(&nvchan->base, nvchan->fence_grobj, 0x0180, 1);
 		OUT_RING  (&nvchan->base, nvchan->fence_ntfy->handle);
 	}
