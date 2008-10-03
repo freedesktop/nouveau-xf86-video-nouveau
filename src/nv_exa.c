@@ -92,25 +92,15 @@ NVSetROP(ScrnInfoPtr pScrn, CARD32 alu, CARD32 planemask)
 static int
 NVExaMarkSync(ScreenPtr pScreen)
 {
-	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
-
-	nouveau_fence_ref(pNv->chan->pushbuf->fence, &pNv->exa_sync);
 	return 0;
 }
 
 static void
 NVExaWaitMarker(ScreenPtr pScreen, int marker)
 {
-	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
-
-	/*XXX*/
-	struct nouveau_fence_priv *nvfence = nouveau_fence(pNv->exa_sync);
-	if (!nvfence->emitted)
-		FIRE_RING(pNv->chan);
-
-	nouveau_fence_wait(&pNv->exa_sync);
+	/* Nothing required - synchronisation for CPU acess to buffers will
+	 * be handled as required when buffers are mapped.
+	 */
 }
 
 static unsigned rect_colour = 0;
