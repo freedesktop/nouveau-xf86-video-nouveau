@@ -79,6 +79,7 @@ NVPutBlitImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 	struct nouveau_grobj *surf2d = pNv->NvContextSurfaces;
 	struct nouveau_grobj *rect = pNv->NvRectangle;
 	struct nouveau_grobj *sifm = pNv->NvScaledImage;
+	struct nouveau_pixmap *rt = nouveau_pixmap(ppix);
         unsigned int crtcs;
         int dst_format;
 
@@ -86,8 +87,8 @@ NVPutBlitImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
         BEGIN_RING(chan, surf2d, NV04_CONTEXT_SURFACES_2D_FORMAT, 4);
         OUT_RING  (chan, dst_format);
         OUT_RING  (chan, (exaGetPixmapPitch(ppix) << 16) | exaGetPixmapPitch(ppix));
-        OUT_PIXMAPl(chan, ppix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
-        OUT_PIXMAPl(chan, ppix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+        OUT_RELOCl(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+        OUT_RELOCl(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
         pbox = REGION_RECTS(clipBoxes);
         nbox = REGION_NUM_RECTS(clipBoxes);

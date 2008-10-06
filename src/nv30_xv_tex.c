@@ -255,6 +255,7 @@ NV30PutTextureImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *rankine = pNv->Nv3D;
+	struct nouveau_pixmap *rt = nouveau_pixmap(ppix);
 	Bool redirected = FALSE;
 	float X1, X2, Y1, Y2;
 	BoxPtr pbox;
@@ -290,7 +291,7 @@ NV30PutTextureImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 			 dst_format);
 	OUT_RING  (chan, (exaGetPixmapPitch(ppix) << 16) |
 			  exaGetPixmapPitch(ppix));
-	OUT_PIXMAPl(chan, ppix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
 	if (pNv->NVArch == 0x30) {
 		int x = 0;

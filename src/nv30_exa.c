@@ -290,6 +290,7 @@ NV30EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *rankine = pNv->Nv3D;
+	struct nouveau_pixmap *tex = nouveau_pixmap(pPix);
 	nv_pict_texture_format_t *fmt;
 	uint32_t card_filter, card_repeat;
 	NV30EXA_STATE;
@@ -306,7 +307,7 @@ NV30EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 		card_filter = 1;
 
 	BEGIN_RING(chan, rankine, NV34TCL_TX_OFFSET(unit), 8);
-	OUT_PIXMAPl(chan, pPix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
+	OUT_RELOCl(chan, tex->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
 
 	OUT_RING  (chan, NV34TCL_TX_FORMAT_DIMS_2D |
 			(fmt->card_fmt << NV34TCL_TX_FORMAT_FORMAT_SHIFT) |
@@ -342,6 +343,7 @@ NV30_SetupSurface(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict)
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *rankine = pNv->Nv3D;
+	struct nouveau_pixmap *rt = nouveau_pixmap(pPix);
 	nv_pict_surface_format_t *fmt;
 
 	fmt = NV30_GetPictSurfaceFormat(pPict->format);
@@ -355,7 +357,7 @@ NV30_SetupSurface(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict)
 	BEGIN_RING(chan, rankine, NV34TCL_RT_FORMAT, 3);
 	OUT_RING  (chan, fmt->card_fmt); /* format */
 	OUT_RING  (chan, pitch << 16 | pitch);
-	OUT_PIXMAPl(chan, pPix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
 	return TRUE;
 }

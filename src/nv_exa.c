@@ -115,6 +115,7 @@ static Bool NVExaPrepareSolid(PixmapPtr pPixmap,
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *surf2d = pNv->NvContextSurfaces;
 	struct nouveau_grobj *rect = pNv->NvRectangle;
+	struct nouveau_pixmap *dst = nouveau_pixmap(pPixmap);
 	unsigned int fmt, pitch, color;
 
 	planemask |= ~0 << pPixmap->drawable.bitsPerPixel;
@@ -152,8 +153,8 @@ static Bool NVExaPrepareSolid(PixmapPtr pPixmap,
 	BEGIN_RING(chan, surf2d, NV04_CONTEXT_SURFACES_2D_FORMAT, 4);
 	OUT_RING  (chan, fmt);
 	OUT_RING  (chan, (pitch << 16) | pitch);
-	OUT_PIXMAPl(chan, pPixmap, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
-	OUT_PIXMAPl(chan, pPixmap, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, dst->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, dst->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
 	rect_colour = color;
 	return TRUE;
@@ -201,6 +202,8 @@ static Bool NVExaPrepareCopy(PixmapPtr pSrcPixmap,
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *surf2d = pNv->NvContextSurfaces;
 	struct nouveau_grobj *blit = pNv->NvImageBlit;
+	struct nouveau_pixmap *src = nouveau_pixmap(pSrcPixmap);
+	struct nouveau_pixmap *dst = nouveau_pixmap(pDstPixmap);
 	int fmt;
 
 	if (pSrcPixmap->drawable.bitsPerPixel !=
@@ -225,9 +228,9 @@ static Bool NVExaPrepareCopy(PixmapPtr pSrcPixmap,
 	BEGIN_RING(chan, surf2d, NV04_CONTEXT_SURFACES_2D_FORMAT, 4);
 	OUT_RING  (chan, fmt);
 	OUT_RING  (chan, (exaGetPixmapPitch(pDstPixmap) << 16) |
-		   (exaGetPixmapPitch(pSrcPixmap)));
-	OUT_PIXMAPl(chan, pSrcPixmap, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
-	OUT_PIXMAPl(chan, pDstPixmap, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+			 (exaGetPixmapPitch(pSrcPixmap)));
+	OUT_RELOCl(chan, src->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
+	OUT_RELOCl(chan, dst->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
 	return TRUE;
 }
@@ -283,15 +286,11 @@ NVAccelDownloadM2MF(PixmapPtr pspix, int x, int y, int w, int h,
 	unsigned cpp = pspix->drawable.bitsPerPixel / 8;
 	unsigned line_len = w * cpp;
 	unsigned src_pitch = 0, src_offset = 0, linear = 0;
-	struct nouveau_pixmap *nvpix;
-
-	nvpix = exaGetPixmapDriverPrivate(pspix);
-	if (!nvpix || !nvpix->bo)
-		return FALSE;
+	struct nouveau_pixmap *nvpix = nouveau_pixmap(pspix);
 
 	BEGIN_RING(chan, m2mf, 0x184, 2);
-	OUT_PIXMAPo(chan, pspix,
-		    NOUVEAU_BO_GART | NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
+	OUT_RELOCo(chan, nvpix->bo,
+			 NOUVEAU_BO_GART | NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
 	OUT_RELOCo(chan, pNv->GART, NOUVEAU_BO_GART | NOUVEAU_BO_WR);
 
 	if (!nvpix->bo->tiled) {
@@ -340,16 +339,17 @@ NVAccelDownloadM2MF(PixmapPtr pspix, int x, int y, int w, int h,
 			}
 
 			BEGIN_RING(chan, m2mf, 0x238, 2);
-			OUT_PIXMAPh(chan, pspix, src_offset, NOUVEAU_BO_GART |
-				    NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
+			OUT_RELOCh(chan, nvpix->bo, src_offset,
+					 NOUVEAU_BO_GART | NOUVEAU_BO_VRAM |
+					 NOUVEAU_BO_RD);
 			OUT_RELOCh(chan, pNv->GART, 0, NOUVEAU_BO_GART |
 				   NOUVEAU_BO_WR);
 		}
 
 		BEGIN_RING(chan, m2mf,
 			   NV04_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
-		OUT_PIXMAPl(chan, pspix, src_offset, NOUVEAU_BO_GART |
-			    NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
+		OUT_RELOCl(chan, nvpix->bo, src_offset, NOUVEAU_BO_GART |
+				 NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
 		OUT_RELOCl(chan, pNv->GART, 0, NOUVEAU_BO_GART | NOUVEAU_BO_WR);
 		OUT_RING  (chan, src_pitch);
 		OUT_RING  (chan, line_len);
@@ -385,9 +385,8 @@ NVAccelDownloadM2MF(PixmapPtr pspix, int x, int y, int w, int h,
 static inline void *
 NVExaPixmapMap(PixmapPtr pPix)
 {
-	struct nouveau_pixmap *nvpix;
+	struct nouveau_pixmap *nvpix = nouveau_pixmap(pPix);
 
-	nvpix = exaGetPixmapDriverPrivate(pPix);
 	if (!nvpix || !nvpix->bo)
 		return NULL;
 
@@ -398,9 +397,8 @@ NVExaPixmapMap(PixmapPtr pPix)
 static inline void
 NVExaPixmapUnmap(PixmapPtr pPix)
 {
-	struct nouveau_pixmap *nvpix;
+	struct nouveau_pixmap *nvpix = nouveau_pixmap(pPix);
 
-	nvpix = exaGetPixmapDriverPrivate(pPix);
 	if (!nvpix || !nvpix->bo)
 		return;
 
@@ -449,6 +447,7 @@ NVAccelUploadIFC(ScrnInfoPtr pScrn, const char *src, int src_pitch,
 	struct nouveau_grobj *surf2d = pNv->NvContextSurfaces;
 	struct nouveau_grobj *clip = pNv->NvClipRectangle;
 	struct nouveau_grobj *ifc = pNv->NvImageFromCpu;
+	struct nouveau_pixmap *dst = nouveau_pixmap(pDst);
 	int line_len = w * cpp;
 	int iw, id, surf_fmt, ifc_fmt;
 	int padbytes;
@@ -475,8 +474,8 @@ NVAccelUploadIFC(ScrnInfoPtr pScrn, const char *src, int src_pitch,
 	BEGIN_RING(chan, surf2d, NV04_CONTEXT_SURFACES_2D_FORMAT, 4);
 	OUT_RING  (chan, surf_fmt);
 	OUT_RING  (chan, (exaGetPixmapPitch(pDst) << 16) | exaGetPixmapPitch(pDst));
-	OUT_PIXMAPl(chan, pDst, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
-	OUT_PIXMAPl(chan, pDst, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, dst->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, dst->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
 	/* Pad out input width to cover both COLORA() and COLORB() */
 	iw  = (line_len + 7) & ~7;
@@ -532,16 +531,15 @@ NVAccelUploadM2MF(PixmapPtr pdpix, int x, int y, int w, int h,
 	unsigned cpp = pdpix->drawable.bitsPerPixel / 8;
 	unsigned line_len = w * cpp;
 	unsigned dst_pitch = 0, dst_offset = 0, linear = 0;
-	struct nouveau_pixmap *nvpix;
+	struct nouveau_pixmap *nvpix = nouveau_pixmap(pdpix);
 
-	nvpix = exaGetPixmapDriverPrivate(pdpix);
 	if (!nvpix || !nvpix->bo)
 		return FALSE;
 
 	BEGIN_RING(chan, m2mf, 0x184, 2);
 	OUT_RELOCo(chan, pNv->GART, NOUVEAU_BO_GART | NOUVEAU_BO_RD);
-	OUT_PIXMAPo(chan, pdpix,
-		    NOUVEAU_BO_VRAM | NOUVEAU_BO_GART | NOUVEAU_BO_WR);
+	OUT_RELOCo(chan, nvpix->bo,
+			 NOUVEAU_BO_VRAM | NOUVEAU_BO_GART | NOUVEAU_BO_WR);
 
 	if (!nvpix->bo->tiled) {
 		linear     = 1;
@@ -608,16 +606,17 @@ NVAccelUploadM2MF(PixmapPtr pdpix, int x, int y, int w, int h,
 			BEGIN_RING(chan, m2mf, 0x0238, 2);
 			OUT_RELOCh(chan, pNv->GART, 0, NOUVEAU_BO_GART |
 				   NOUVEAU_BO_RD);
-			OUT_PIXMAPh(chan, pdpix, dst_offset, NOUVEAU_BO_VRAM | 
-				    NOUVEAU_BO_GART | NOUVEAU_BO_WR);
+			OUT_RELOCh(chan, nvpix->bo, dst_offset,
+					 NOUVEAU_BO_VRAM | NOUVEAU_BO_GART |
+					 NOUVEAU_BO_WR);
 		}
 
 		/* DMA to VRAM */
 		BEGIN_RING(chan, m2mf,
 			   NV04_MEMORY_TO_MEMORY_FORMAT_OFFSET_IN, 8);
 		OUT_RELOCl(chan, pNv->GART, 0, NOUVEAU_BO_GART | NOUVEAU_BO_RD);
-		OUT_PIXMAPl(chan, pdpix, dst_offset, NOUVEAU_BO_VRAM |
-			    NOUVEAU_BO_GART | NOUVEAU_BO_WR);
+		OUT_RELOCl(chan, nvpix->bo, dst_offset, NOUVEAU_BO_VRAM |
+				 NOUVEAU_BO_GART | NOUVEAU_BO_WR);
 		OUT_RING  (chan, line_len);
 		OUT_RING  (chan, dst_pitch);
 		OUT_RING  (chan, line_len);

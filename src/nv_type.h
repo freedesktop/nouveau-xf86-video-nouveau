@@ -353,6 +353,17 @@ enum LVDS_script {
 	LVDS_PANEL_OFF
 };
 
+struct nouveau_pixmap {
+	struct nouveau_bo *bo;
+	int mapped;
+};
+
+static inline struct nouveau_pixmap *
+nouveau_pixmap(PixmapPtr pPixmap)
+{
+	return exaGetPixmapDriverPrivate(pPixmap);
+}
+
 typedef struct _NVRec *NVPtr;
 typedef struct _NVRec {
     RIVA_HW_STATE       SavedReg;

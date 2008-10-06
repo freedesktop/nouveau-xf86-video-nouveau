@@ -238,6 +238,7 @@ NV40EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *curie = pNv->Nv3D;
+	struct nouveau_pixmap *tex = nouveau_pixmap(pPix);
 	nv_pict_texture_format_t *fmt;
 	NV40EXA_STATE;
 
@@ -246,14 +247,14 @@ NV40EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 		return FALSE;
 
 	BEGIN_RING(chan, curie, NV40TCL_TEX_OFFSET(unit), 8);
-	OUT_PIXMAPl(chan, pPix, 0,
-			  NOUVEAU_BO_VRAM | NOUVEAU_BO_GART | NOUVEAU_BO_RD);
-	OUT_PIXMAPd(chan, pPix, fmt->card_fmt | NV40TCL_TEX_FORMAT_LINEAR |
-			  NV40TCL_TEX_FORMAT_DIMS_2D | 0x8000 |
-			  NV40TCL_TEX_FORMAT_NO_BORDER |
-			  (1 << NV40TCL_TEX_FORMAT_MIPMAP_COUNT_SHIFT),
-			  NOUVEAU_BO_VRAM | NOUVEAU_BO_GART | NOUVEAU_BO_RD,
-			  NV40TCL_TEX_FORMAT_DMA0, NV40TCL_TEX_FORMAT_DMA1);
+	OUT_RELOCl(chan, tex->bo, 0,
+			 NOUVEAU_BO_VRAM | NOUVEAU_BO_GART | NOUVEAU_BO_RD);
+	OUT_RELOCd(chan, tex->bo, fmt->card_fmt | NV40TCL_TEX_FORMAT_LINEAR |
+			 NV40TCL_TEX_FORMAT_DIMS_2D | 0x8000 |
+			 NV40TCL_TEX_FORMAT_NO_BORDER |
+			 (1 << NV40TCL_TEX_FORMAT_MIPMAP_COUNT_SHIFT),
+			 NOUVEAU_BO_VRAM | NOUVEAU_BO_GART | NOUVEAU_BO_RD,
+			 NV40TCL_TEX_FORMAT_DMA0, NV40TCL_TEX_FORMAT_DMA1);
 	if (pPict->repeat) {
 		switch(pPict->repeatType) {
 		case RepeatPad:
@@ -305,6 +306,7 @@ NV40_SetupSurface(ScrnInfoPtr pScrn, PixmapPtr pPix, PictFormatShort format)
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *curie = pNv->Nv3D;
+	struct nouveau_pixmap *rt = nouveau_pixmap(pPix);
 	nv_pict_surface_format_t *fmt;
 
 	fmt = NV40_GetPictSurfaceFormat(format);
@@ -318,7 +320,7 @@ NV40_SetupSurface(ScrnInfoPtr pScrn, PixmapPtr pPix, PictFormatShort format)
 		   NV40TCL_RT_FORMAT_ZETA_Z24S8 |
 		   fmt->card_fmt);
 	OUT_RING  (chan, exaGetPixmapPitch(pPix));
-	OUT_PIXMAPl(chan, pPix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 
 	return TRUE;
 }

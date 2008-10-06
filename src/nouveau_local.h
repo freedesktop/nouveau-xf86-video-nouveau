@@ -29,11 +29,6 @@
 #define NOUVEAU_PRIVATE _X_HIDDEN
 #define NOUVEAU_PUBLIC _X_EXPORT
 
-struct nouveau_pixmap {
-	struct nouveau_bo *bo;
-	int mapped;
-};
-
 /* Debug output */
 #define NOUVEAU_MSG(fmt,args...) ErrorF(fmt, ##args)
 #define NOUVEAU_ERR(fmt,args...) \
@@ -180,27 +175,5 @@ OUT_RELOCh(struct nouveau_channel *chan, struct nouveau_bo *bo,
 {
 	OUT_RELOC(chan, bo, delta, flags | NOUVEAU_BO_HIGH, 0, 0);
 }
-
-/* Alternate versions of OUT_RELOCx above, takes pixmaps instead of BOs */
-#define OUT_PIXMAPd(chan,pm,data,flags,vor,tor) do {                           \
-	struct nouveau_pixmap *nvpix = exaGetPixmapDriverPrivate((pm));        \
-	struct nouveau_bo *pmo = nvpix->bo;                                    \
-	OUT_RELOCd((chan), pmo, (data), (flags), (vor), (tor));                \
-} while(0)
-#define OUT_PIXMAPo(chan,pm,flags) do {                                        \
-	struct nouveau_pixmap *nvpix = exaGetPixmapDriverPrivate((pm));        \
-	struct nouveau_bo *pmo = nvpix->bo;                                    \
-	OUT_RELOCo((chan), pmo, (flags));                                      \
-} while(0)
-#define OUT_PIXMAPl(chan,pm,delta,flags) do {                                  \
-	struct nouveau_pixmap *nvpix = exaGetPixmapDriverPrivate((pm));        \
-	struct nouveau_bo *pmo = nvpix->bo;                                    \
-	OUT_RELOCl((chan), pmo, (delta), (flags));                             \
-} while(0)
-#define OUT_PIXMAPh(chan,pm,delta,flags) do {                                  \
-	struct nouveau_pixmap *nvpix = exaGetPixmapDriverPrivate((pm));        \
-	struct nouveau_bo *pmo = nvpix->bo;                                    \
-	OUT_RELOCh((chan), pmo, (delta), (flags));                             \
-} while(0)
 
 #endif

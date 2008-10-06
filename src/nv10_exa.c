@@ -318,6 +318,7 @@ static void NV10SetTexture(NVPtr pNv,int unit,PicturePtr Pict,PixmapPtr pixmap)
 {
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *celcius = pNv->Nv3D;
+	struct nouveau_pixmap *nvpix = nouveau_pixmap(pixmap);
 	int log2w = log2i(Pict->pDrawable->width);
 	int log2h = log2i(Pict->pDrawable->height);
 	int w;
@@ -330,7 +331,7 @@ static void NV10SetTexture(NVPtr pNv,int unit,PicturePtr Pict,PixmapPtr pixmap)
 			0x51 /* UNK */;
 
 	BEGIN_RING(chan, celcius, NV10TCL_TX_OFFSET(unit), 1 );
-	OUT_PIXMAPl(chan, pixmap, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
+	OUT_RELOCl(chan, nvpix->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD);
 
 	/* if repeat is set we're always handling a 1x1 texture with ARGB/XRGB destination, 
 	in that case we change the format	to use the POT (swizzled) matching format */
@@ -386,6 +387,7 @@ static void NV10SetBuffer(NVPtr pNv,PicturePtr Pict,PixmapPtr pixmap)
 {
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *celcius = pNv->Nv3D;
+	struct nouveau_pixmap *nvpix = nouveau_pixmap(pixmap);
 	int i;
 	int x = 0;
 	int y = 0;
@@ -402,7 +404,7 @@ static void NV10SetBuffer(NVPtr pNv,PicturePtr Pict,PixmapPtr pixmap)
 		}
 	
 	OUT_RING  (chan, ((uint32_t)exaGetPixmapPitch(pixmap) << 16) |(uint32_t)exaGetPixmapPitch(pixmap));
-	OUT_PIXMAPl(chan, pixmap, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, nvpix->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 	OUT_RING  (chan, 0);
 		
 	BEGIN_RING(chan, celcius, NV10TCL_RT_HORIZ, 2);

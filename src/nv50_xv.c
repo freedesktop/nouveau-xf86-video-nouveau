@@ -39,10 +39,9 @@
 static Bool
 nv50_xv_check_image_put(PixmapPtr ppix)
 {
-	struct nouveau_pixmap *nvpix;
+	struct nouveau_pixmap *rt = nouveau_pixmap(ppix);
 
-	nvpix = exaGetPixmapDriverPrivate(ppix);
-	if (!nvpix || !nvpix->bo)
+	if (!rt || !rt->bo || !rt->bo->tiled)
 		return FALSE;
 
 	switch (ppix->drawable.depth) {
@@ -53,9 +52,6 @@ nv50_xv_check_image_put(PixmapPtr ppix)
 	default:
 		return FALSE;
 	}
-
-	if (!nvpix->bo->tiled)
-		return FALSE;
 
 	return TRUE;
 }
@@ -74,6 +70,7 @@ nv50_xv_image_put(ScrnInfoPtr pScrn,
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *tesla = pNv->Nv3D;
+	struct nouveau_pixmap *rt = nouveau_pixmap(ppix);
 	float X1, X2, Y1, Y2;
 	BoxPtr pbox;
 	int nbox;
@@ -82,8 +79,8 @@ nv50_xv_image_put(ScrnInfoPtr pScrn,
 		return BadMatch;
 
 	BEGIN_RING(chan, tesla, NV50TCL_RT_ADDRESS_HIGH(0), 5);
-	OUT_PIXMAPh(chan, ppix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
-	OUT_PIXMAPl(chan, ppix, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCh(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, rt->bo, 0, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 	switch (ppix->drawable.depth) {
 	case 32: OUT_RING  (chan, NV50TCL_RT_FORMAT_32BPP); break;
 	case 24: OUT_RING  (chan, NV50TCL_RT_FORMAT_24BPP); break;
