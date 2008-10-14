@@ -311,7 +311,7 @@ NV30EXATexture(ScrnInfoPtr pScrn, PixmapPtr pPix, PicturePtr pPict, int unit)
 
 	OUT_RING  (chan, NV34TCL_TX_FORMAT_DIMS_2D |
 			(fmt->card_fmt << NV34TCL_TX_FORMAT_FORMAT_SHIFT) |
-			(1 << NV34TCL_TX_FORMAT_MIPMAP_LEVELS_SHIFT) |
+			(1 << 16) |
 			(log2i(pPix->drawable.width)  << NV34TCL_TX_FORMAT_BASE_SIZE_U_SHIFT) |
 			(log2i(pPix->drawable.height) << NV34TCL_TX_FORMAT_BASE_SIZE_V_SHIFT) |
 			8 |

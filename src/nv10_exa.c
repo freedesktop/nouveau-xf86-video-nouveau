@@ -1044,7 +1044,7 @@ NVAccelInitNV10TCL(ScrnInfoPtr pScrn)
 	OUT_RING  (chan, 0);
 	BEGIN_RING(chan, celcius, NV10TCL_CULL_FACE_ENABLE, 1);
 	OUT_RING  (chan, 0);
-	BEGIN_RING(chan, celcius, NV10TCL_CLIP_PLANE_ENABLE(0), 8);
+	BEGIN_RING(chan, celcius, NV10TCL_TX_GEN_S(0), 8);
 	for (i=0;i<8;i++) {
 		OUT_RING  (chan, 0);
 	}

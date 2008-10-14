@@ -1054,7 +1054,8 @@ NVPutImage(ScrnInfoPtr pScrn, short src_x, short src_y, short drw_x,
 	/* If we have no GART at all... */
 	if (!destination_buffer) {
 		if (pNv->Architecture >= NV_ARCH_50) {
-			NOUVEAU_ERR("No scratch buffer for tiled upload\n");
+			xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+				   "No scratch buffer for tiled upload\n");
 			return BadAlloc;
 		}
 
