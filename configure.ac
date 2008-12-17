@@ -98,11 +98,21 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ #include <stdio.h> ]], [[ ]])],
 # needed for the next test
 CFLAGS="$CFLAGS $XORG_CFLAGS"
 
-AC_CHECK_HEADER([xf86drmMode.h],[DRM_MODE=yes],[DRM_MODE=no],
-	[#include "stdint.h"	]
-)
+AC_MSG_CHECKING(for DRM modesetting)
+AC_ARG_WITH(
+	kms,
+	[  --with-kms=yes,no       compile with drm modesetting support (default: no)],
+	kms="$withval",
+	kms="no")
+AC_MSG_RESULT($kms)
 
-if test "x$DRM_MODE" = xyes; then
+if test "x$kms" = xyes; then
+	AC_CHECK_HEADER([xf86drmMode.h],[kms=yes],[kms=no],
+		[#include "stdint.h"    ]
+	)
+fi
+
+if test "x$kms" = xyes; then
 	AC_DEFINE(XF86DRM_MODE,1,[DRM kernel modesetting])
 fi
 
