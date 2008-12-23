@@ -732,26 +732,14 @@ NVExaPixmapIsOffscreen(PixmapPtr pPix)
 static void *
 NVExaCreatePixmap(ScreenPtr pScreen, int size, int align)
 {
-	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_pixmap *nvpix;
 
 	nvpix = xcalloc(1, sizeof(struct nouveau_pixmap));
 	if (!nvpix)
 		return NULL;
 
-	if (size) {
-		uint32_t flags = NOUVEAU_BO_VRAM;
-
-		if (pNv->Architecture >= NV_ARCH_50)
-			flags |= NOUVEAU_BO_TILED;
-
-		if (nouveau_bo_new(pNv->dev, flags, 0, size,
-				   &nvpix->bo)) {
-			xfree(nvpix);
-			return NULL;
-		}
-	}
+	/* Allocate later when we know with and height. */
+	nvpix->size = size;
 
 	return nvpix;
 }
@@ -786,7 +774,51 @@ NVExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int depth,
 
 		miModifyPixmapHeader(pPixmap, width, height, depth,
 				     bitsPerPixel, devKind, NULL);
+		
 		return TRUE;
+	}
+
+	nvpix = nouveau_pixmap(pPixmap);
+	if (!nvpix)
+		return FALSE;
+
+	/* Really create pixmap. now that we know the pixmap dimensions. */
+	if (!nvpix->bo) {
+		if (nvpix->size) {
+			uint32_t flags = 0;
+			/* Arguments that are zero are not supposed to be changed.
+			 * But in this case we need bpp for the actual size calculation.
+			 */
+			uint32_t bpp = pPixmap->drawable.bitsPerPixel;
+
+			/* At some point we should just keep bpp 1 pixmaps in sysram. */
+			flags = NOUVEAU_BO_VRAM;
+
+			/* Assuming that exa doesn't mess with devKind. */
+			/* The migration code isn't touched so that is a fairly safe assumption. */
+			if (pNv->Architecture >= NV_ARCH_50 && pPixmap->drawable.bitsPerPixel >= 8) {
+				flags |= NOUVEAU_BO_TILED;
+				/* Align size to tile size. */
+				uint32_t aw = (width + 7) & ~7;
+				uint32_t ah = (height + 7) & ~7;
+				/* Adjust pitch for width changes. */
+				devKind = ((aw * (bpp/8)) + 63) & ~63;
+				nvpix->size = devKind * ah;
+			}
+
+			if (nouveau_bo_new(pNv->dev, flags, 0, nvpix->size,
+					   &nvpix->bo)) {
+				xfree(nvpix);
+				return FALSE;
+			}
+
+			/* We don't want devPrivate.ptr set at all. */
+			miModifyPixmapHeader(pPixmap, width, height, depth, bitsPerPixel, devKind, NULL);
+
+			/* Returning TRUE means the ModifyPixmapHeader chain needs to be stopped. */
+			/* Otherwise you end up with devKind being overriden again. */
+			return TRUE;
+		}
 	}
 
 	return FALSE;
