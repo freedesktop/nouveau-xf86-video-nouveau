@@ -372,10 +372,24 @@ NVExaPixmapMap(PixmapPtr pPix)
 	if (!nvpix || !nvpix->bo)
 		return NULL;
 
+	if (nvpix->bo->tiled) {
+		nvpix->untiled = xalloc(pPix->devKind * pPix->drawable.height);
+
+		NVAccelDownloadM2MF(pPix, 0, 0, pPix->drawable.width,
+				    pPix->drawable.height, nvpix->untiled,
+				    pPix->devKind);
+
+		nouveau_bo_map(nvpix->bo, NOUVEAU_BO_RDWR);
+		return nvpix->untiled;
+	}
+
 	nouveau_bo_map(nvpix->bo, NOUVEAU_BO_RDWR);
 	return nvpix->bo->map;
 }
 
+static inline Bool
+NVAccelUploadM2MF(PixmapPtr pdpix, int x, int y, int w, int h,
+		  const char *src, int src_pitch);
 static inline void
 NVExaPixmapUnmap(PixmapPtr pPix)
 {
@@ -384,6 +398,12 @@ NVExaPixmapUnmap(PixmapPtr pPix)
 	if (!nvpix || !nvpix->bo)
 		return;
 
+	if (nvpix->untiled) {
+		NVAccelUploadM2MF(pPix, 0, 0, pPix->drawable.width,
+				  pPix->drawable.height, nvpix->untiled,
+				  pPix->devKind);
+		xfree(nvpix->untiled);
+	}
 	nouveau_bo_unmap(nvpix->bo);
 }
 
@@ -680,37 +700,14 @@ static Bool NVUploadToScreen(PixmapPtr pDst,
 static Bool
 NVExaPrepareAccess(PixmapPtr pPix, int index)
 {
-	ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
-	struct nouveau_pixmap *nvpix;
-	(void)pNv;
-
-	nvpix = exaGetPixmapDriverPrivate(pPix);
-	if (!nvpix || !nvpix->bo)
-		return FALSE;
-
-	if (!nvpix->bo->map) {
-		if (nouveau_bo_map(nvpix->bo, NOUVEAU_BO_RDWR))
-			return FALSE;
-	}
-
-	pPix->devPrivate.ptr = nvpix->bo->map;
+	pPix->devPrivate.ptr = NVExaPixmapMap(pPix);
 	return TRUE;
 }
 
 static void
 NVExaFinishAccess(PixmapPtr pPix, int index)
 {
-	ScrnInfoPtr pScrn = xf86Screens[pPix->drawable.pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
-	struct nouveau_pixmap *nvpix;
-	(void)pNv;
-
-	nvpix = exaGetPixmapDriverPrivate(pPix);
-	if (!nvpix || !nvpix->bo)
-		return;
-
-	nouveau_bo_unmap(nvpix->bo);
+	NVExaPixmapUnmap(pPix);
 	pPix->devPrivate.ptr = NULL;
 }
 
