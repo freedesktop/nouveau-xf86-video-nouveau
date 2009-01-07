@@ -208,11 +208,22 @@ NV50EXASetROP(PixmapPtr pdpix, int alu, Pixel planemask)
 	}
 }
 
+static void
+NV50EXAStateSolidReEmit(struct nouveau_channel *chan)
+{
+	NVPtr pNv = chan->user_private;
+
+	NV50EXAPrepareSolid(pNv->dst_pixmap, pNv->composite_op,
+			    pNv->planemask, pNv->fg_colour);
+}
+
 Bool
 NV50EXAPrepareSolid(PixmapPtr pdpix, int alu, Pixel planemask, Pixel fg)
 {
 	NV50EXA_LOCALS(pdpix);
 	uint32_t fmt;
+
+	RING_SPACE(chan, 64);
 
 	planemask |= ~0 << pScrn->depth;
 
@@ -227,6 +238,11 @@ NV50EXAPrepareSolid(PixmapPtr pdpix, int alu, Pixel planemask, Pixel fg)
 	OUT_RING  (chan, fmt);
 	OUT_RING  (chan, fg);
 
+	chan->flush_notify = NV50EXAStateSolidReEmit;
+	pNv->composite_op = alu;
+	pNv->dst_pixmap = pdpix;
+	pNv->planemask = planemask;
+	pNv->fg_colour = fg;
 	return TRUE;
 }
 
@@ -234,6 +250,8 @@ void
 NV50EXASolid(PixmapPtr pdpix, int x1, int y1, int x2, int y2)
 {
 	NV50EXA_LOCALS(pdpix);
+
+	RING_SPACE(chan, 7);
 
 	BEGIN_RING(chan, eng2d, NV50_2D_RECT_X1, 4);
 	OUT_RING  (chan, x1);
@@ -248,6 +266,9 @@ NV50EXASolid(PixmapPtr pdpix, int x1, int y1, int x2, int y2)
 void
 NV50EXADoneSolid(PixmapPtr pdpix)
 {
+	NV50EXA_LOCALS(pdpix);
+
+	chan->flush_notify = NULL;
 }
 
 Bool

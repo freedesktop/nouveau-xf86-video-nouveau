@@ -530,6 +530,8 @@ typedef struct _NVRec {
 	struct nouveau_bo *xv_filtertable_mem;
 
 	int composite_op;
+	Pixel fg_colour;
+	Pixel planemask;
 	PixmapPtr src_pixmap;
 	PixmapPtr mask_pixmap;
 	PixmapPtr dst_pixmap;
