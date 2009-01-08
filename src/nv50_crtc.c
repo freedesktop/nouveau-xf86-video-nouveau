@@ -550,6 +550,9 @@ NV50CrtcDestroy(ScrnInfoPtr pScrn)
 	for (i=0; i < 2; i++) {
 		nouveauCrtcPtr crtc = pNv->crtc[i];
 
+		if (!crtc)
+			continue;
+
 		xfree(crtc->name);
 		xfree(crtc);
 		pNv->crtc[i] = NULL;

@@ -100,6 +100,9 @@ NV50ConnectorDestroy(ScrnInfoPtr pScrn)
 	for (i = 0; i < MAX_NUM_DCB_ENTRIES; i++) {
 		nouveauConnectorPtr connector = pNv->connector[i];
 
+		if (!connector)
+			continue;
+
 		xfree(connector->name);
 		xfree(connector);
 		pNv->connector[i] = NULL;
