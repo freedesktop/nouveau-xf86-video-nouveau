@@ -22,6 +22,119 @@
 
 #include "nv_include.h"
 
+Bool
+nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height, int bpp,
+			 int usage_hint, int *pitch, struct nouveau_bo **bo)
+{
+	NVPtr pNv = NVPTR(scrn);
+	Bool scanout = (usage_hint & NOUVEAU_CREATE_PIXMAP_SCANOUT);
+	Bool tiled = (usage_hint & NOUVEAU_CREATE_PIXMAP_TILED);
+	int tile_mode = 0, tile_flags = 0;
+	int flags = NOUVEAU_BO_MAP | (bpp >= 8 ? NOUVEAU_BO_VRAM : 0);
+	int ret;
+
+	if ((scanout && pNv->tiled_scanout) ||
+	    (!scanout && pNv->Architecture >= NV_ARCH_50 && bpp >= 8))
+		tiled = TRUE;
+
+	*pitch = NOUVEAU_ALIGN(width * bpp, 512) / 8;
+
+	if (tiled) {
+		if (pNv->Architecture >= NV_ARCH_C0) {
+			if (height > 64)
+				tile_mode = 4;
+			else if (height > 32)
+				tile_mode = 3;
+			else if (height > 16)
+				tile_mode = 2;
+			else if (height > 8)
+				tile_mode = 1;
+			else
+				tile_mode = 0;
+
+			if (usage_hint & NOUVEAU_CREATE_PIXMAP_ZETA)
+				tile_flags = 0x1100; /* S8Z24 */
+			else
+				tile_flags = 0xfe00;
+
+			height = NOUVEAU_ALIGN(height, 1 << (tile_mode + 3));
+		} else if (pNv->Architecture >= NV_ARCH_50) {
+			if (height > 32)
+				tile_mode = 4;
+			else if (height > 16)
+				tile_mode = 3;
+			else if (height > 8)
+				tile_mode = 2;
+			else if (height > 4)
+				tile_mode = 1;
+			else
+				tile_mode = 0;
+
+			if (usage_hint & NOUVEAU_CREATE_PIXMAP_ZETA)
+				tile_flags = 0x2800;
+			else if (usage_hint & NOUVEAU_CREATE_PIXMAP_SCANOUT)
+				tile_flags = (bpp == 16 ? 0x7000 : 0x7a00);
+			else
+				tile_flags = 0x7000;
+
+			height = NOUVEAU_ALIGN(height, 1 << (tile_mode + 2));
+		} else {
+			int pitch_align = max(
+				pNv->dev->chipset >= 0x40 ? 1024 : 256,
+				round_down_pow2(*pitch / 4));
+
+			tile_mode = *pitch =
+				NOUVEAU_ALIGN(*pitch, pitch_align);
+		}
+	}
+
+	if (bpp == 32)
+		tile_flags |= NOUVEAU_BO_TILE_32BPP;
+	else if (bpp == 16)
+		tile_flags |= NOUVEAU_BO_TILE_16BPP;
+
+	if (usage_hint & NOUVEAU_CREATE_PIXMAP_ZETA)
+		tile_flags |= NOUVEAU_BO_TILE_ZETA;
+
+	if (usage_hint & NOUVEAU_CREATE_PIXMAP_SCANOUT)
+		tile_flags |= NOUVEAU_BO_TILE_SCANOUT;
+
+	ret = nouveau_bo_new_tile(pNv->dev, flags, 0, *pitch * height,
+				  tile_mode, tile_flags, bo);
+	if (ret)
+		return FALSE;
+
+	return TRUE;
+}
+
+void
+NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box)
+{
+	ScrnInfoPtr pScrn = xf86Screens[ppix->drawable.pScreen->myNum];
+	NVPtr pNv = NVPTR(pScrn);
+	struct nouveau_channel *chan = pNv->chan;
+	struct nouveau_grobj *blit = pNv->NvImageBlit;
+	int crtcs;
+
+	if (!nouveau_exa_pixmap_is_onscreen(ppix))
+		return;
+
+	crtcs = nv_window_belongs_to_crtc(pScrn, box->x1, box->y1,
+					  box->x2 - box->x1,
+					  box->y2 - box->y1);
+	if (!crtcs)
+		return;
+
+	BEGIN_RING(chan, blit, 0x0000012C, 1);
+	OUT_RING  (chan, 0);
+	BEGIN_RING(chan, blit, 0x00000134, 1);
+	OUT_RING  (chan, ffs(crtcs) - 1);
+	BEGIN_RING(chan, blit, 0x00000100, 1);
+	OUT_RING  (chan, 0);
+	BEGIN_RING(chan, blit, 0x00000130, 1);
+	OUT_RING  (chan, 0);
+}
+
 static Bool
 NVAccelInitDmaNotifier0(ScrnInfoPtr pScrn)
 {

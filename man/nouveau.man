@@ -72,6 +72,24 @@ Disable or enable acceleration.  Default: acceleration is enabled.
 .TP
 .BI "Option \*qShadowFB\*q \*q" boolean \*q
 Enable or disable use of the shadow framebuffer layer.  Default: off.
+.TP
+.BI "Option \*qWrappedFB\*q \*q" boolean \*q
+Enable or disable wfb, only affects nv50+. Useful for some legacy configurations where high rendering latency is perceived.  Default: wfb is disabled.
+.TP
+.BI "Option \*qGLXVBlank\*q \*q" boolean \*q
+Synchronize GLX clients to VBlank. Useful where tearing is a problem,
+harmful if the GPU isn't fast enough to keep up with the monitor
+refresh rate. Default: off.
+.TP
+.BI "Option \*qZaphodHeads\*q \*q" string \*q
+Specify the randr output(s) to use with zaphod mode for a particular driver
+instance.  If you use this option you most use this option for all instances
+of the driver.
+.br
+For example:
+.B
+Option \*qZaphodHeads\*q \*qLVDS,VGA-0\*q
+will assign xrandr outputs LVDS and VGA-0 to this instance of the driver.
 .SH "SEE ALSO"
 __xservername__(__appmansuffix__), __xconfigfile__(__filemansuffix__), Xserver(__appmansuffix__), X(__miscmansuffix__)
 .SH AUTHORS

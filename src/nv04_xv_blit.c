@@ -82,7 +82,6 @@ NVPutBlitImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 	struct nouveau_grobj *rect = pNv->NvRectangle;
 	struct nouveau_grobj *sifm = pNv->NvScaledImage;
 	struct nouveau_bo *bo = nouveau_pixmap_bo(ppix);
-        unsigned int crtcs;
         int dst_format;
 
         if (!NVAccelGetCtxSurf2DFormatFromPixmap(ppix, &dst_format))
@@ -130,14 +129,8 @@ NVPutBlitImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
         }
 
         if(pPriv->SyncToVBlank) {
-                crtcs = nv_window_belongs_to_crtc(pScrn, dstBox->x1, dstBox->y1,
-                        dstBox->x2, dstBox->y2);
-
-                FIRE_RING (chan);
-                if (crtcs & 0x1)
-                        NVWaitVSync(pScrn, 0);
-                else if (crtcs & 0x2)
-                        NVWaitVSync(pScrn, 1);
+                FIRE_RING(chan);
+		NV11SyncToVBlank(ppix, dstBox);
         }
 
         if (pNv->dev->chipset >= 0x05) {

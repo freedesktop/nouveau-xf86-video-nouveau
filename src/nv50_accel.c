@@ -23,6 +23,36 @@
 #include "nv_include.h"
 #include "nv50_accel.h"
 
+void
+NV50SyncToVBlank(PixmapPtr ppix, BoxPtr box)
+{
+	ScrnInfoPtr pScrn = xf86Screens[ppix->drawable.pScreen->myNum];
+	NVPtr pNv = NVPTR(pScrn);
+	struct nouveau_channel *chan = pNv->chan;
+	struct nouveau_grobj *nvsw = pNv->NvSW;
+	int crtcs;
+
+	if (!nouveau_exa_pixmap_is_onscreen(ppix))
+		return;
+
+	crtcs = nv_window_belongs_to_crtc(pScrn, box->x1, box->y1,
+					  box->x2 - box->x1,
+					  box->y2 - box->y1);
+	if (!crtcs)
+		return;
+
+	BEGIN_RING(chan, nvsw, 0x0060, 2);
+	OUT_RING  (chan, pNv->vblank_sem->handle);
+	OUT_RING  (chan, 0);
+	BEGIN_RING(chan, nvsw, 0x006c, 1);
+	OUT_RING  (chan, 0x22222222);
+	BEGIN_RING(chan, nvsw, 0x0404, 2);
+	OUT_RING  (chan, 0x11111111);
+	OUT_RING  (chan, ffs(crtcs) - 1);
+	BEGIN_RING(chan, nvsw, 0x0068, 1);
+	OUT_RING  (chan, 0x11111111);
+}
+
 Bool
 NVAccelInitNV50TCL(ScrnInfoPtr pScrn)
 {
@@ -46,6 +76,9 @@ NVAccelInitNV50TCL(ScrnInfoPtr pScrn)
 		case 0xaa:
 		case 0xac:
 			class = NVA0TCL;
+			break;
+		case 0xaf:
+			class = NVAFTCL;
 			break;
 		default:
 			class = NVA8TCL;

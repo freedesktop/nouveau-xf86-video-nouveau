@@ -258,7 +258,7 @@ NV30PutTextureImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_grobj *rankine = pNv->Nv3D;
 	struct nouveau_bo *bo = nouveau_pixmap_bo(ppix);
-	Bool redirected = FALSE, bicubic = pPriv->bicubic;
+	Bool bicubic = pPriv->bicubic;
 	float X1, X2, Y1, Y2;
 	BoxPtr pbox;
 	int nbox;
@@ -274,11 +274,6 @@ NV30PutTextureImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 		ErrorF("No surface format, bad.\n");
 		return BadImplementation;
 	}
-
-#ifdef COMPOSITE
-	if (!nouveau_exa_pixmap_is_onscreen(ppix))
-		redirected = TRUE;
-#endif
 
 	pbox = REGION_RECTS(clipBoxes);
 	nbox = REGION_NUM_RECTS(clipBoxes);
@@ -353,15 +348,9 @@ NV30PutTextureImage(ScrnInfoPtr pScrn, struct nouveau_bo *src, int src_offset,
 	}
 
 	/* Just before rendering we wait for vblank in the non-composited case. */
-	if (pPriv->SyncToVBlank && !redirected) {
-		uint8_t crtcs = nv_window_belongs_to_crtc(pScrn, dstBox->x1, dstBox->y1,
-			dstBox->x2 - dstBox->x1, dstBox->y2 - dstBox->y1);
-
-		FIRE_RING (chan);
-		if (crtcs & 0x1)
-			NVWaitVSync(pScrn, 0);
-		else if (crtcs & 0x2)
-			NVWaitVSync(pScrn, 1);
+	if (pPriv->SyncToVBlank) {
+		FIRE_RING(chan);
+		NV11SyncToVBlank(ppix, dstBox);
 	}
 
 	/* These are fixed point values in the 16.16 format. */

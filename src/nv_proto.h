@@ -7,8 +7,9 @@ void drmmode_adjust_frame(ScrnInfoPtr pScrn, int x, int y, int flags);
 void drmmode_remove_fb(ScrnInfoPtr pScrn);
 Bool drmmode_cursor_init(ScreenPtr pScreen);
 void drmmode_fbcon_copy(ScreenPtr pScreen);
-void drmmode_uevent_init(ScrnInfoPtr);
-void drmmode_uevent_fini(ScrnInfoPtr);
+Bool drmmode_page_flip(DrawablePtr draw, PixmapPtr back, void *priv);
+void drmmode_screen_init(ScreenPtr pScreen);
+void drmmode_screen_fini(ScreenPtr pScreen);
 
 /* in nv_accel_common.c */
 Bool NVAccelCommonInit(ScrnInfoPtr pScrn);
@@ -16,15 +17,21 @@ Bool NVAccelGetCtxSurf2DFormatFromPixmap(PixmapPtr pPix, int *fmt_ret);
 Bool NVAccelGetCtxSurf2DFormatFromPicture(PicturePtr pPix, int *fmt_ret);
 PixmapPtr NVGetDrawablePixmap(DrawablePtr pDraw);
 void NVAccelFree(ScrnInfoPtr pScrn);
+void NV11SyncToVBlank(PixmapPtr ppix, BoxPtr box);
+Bool nouveau_allocate_surface(ScrnInfoPtr scrn, int width, int height,
+			      int bpp, int usage_hint, int *pitch,
+			      struct nouveau_bo **bo);
 
 /* in nouveau_dri2.c */
+void nouveau_dri2_vblank_handler(int fd, unsigned int frame,
+				 unsigned int tv_sec, unsigned int tv_usec,
+				 void *event_data);
 Bool nouveau_dri2_init(ScreenPtr pScreen);
 void nouveau_dri2_fini(ScreenPtr pScreen);
 
 /* in nouveau_xv.c */
 void NVInitVideo(ScreenPtr);
 void NVTakedownVideo(ScrnInfoPtr);
-void NVWaitVSync(ScrnInfoPtr pScrn, int crtc);
 void NVSetPortDefaults (ScrnInfoPtr pScrn, NVPortPrivPtr pPriv);
 unsigned int nv_window_belongs_to_crtc(ScrnInfoPtr, int, int, int, int);
 
@@ -125,6 +132,7 @@ int NV40GetTexturePortAttribute(ScrnInfoPtr, Atom, INT32 *, pointer);
 int NV40SetTexturePortAttribute(ScrnInfoPtr, Atom, INT32, pointer);
 
 /* in nv50_accel.c */
+void NV50SyncToVBlank(PixmapPtr ppix, BoxPtr box);
 Bool NVAccelInitNV50TCL(ScrnInfoPtr pScrn);
 
 /* in nvc0_accel.c */

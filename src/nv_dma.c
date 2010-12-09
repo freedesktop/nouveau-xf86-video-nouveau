@@ -81,7 +81,8 @@ NVInitDma(ScrnInfoPtr pScrn)
 	NVPtr pNv = NVPTR(pScrn);
 	int ret;
 
-	ret = nouveau_channel_alloc(pNv->dev, NvDmaFB, NvDmaTT, &pNv->chan);
+	ret = nouveau_channel_alloc(pNv->dev, NvDmaFB, NvDmaTT, 24*1024,
+				    &pNv->chan);
 	if (ret) {
 		xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 			   "Error creating GPU channel: %d\n", ret);

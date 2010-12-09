@@ -171,7 +171,7 @@ nouveau_wfb_setup_wrap(ReadMemoryProcPtr *pRead, WriteMemoryProcPtr *pWrite,
 	wfb->ppix = ppix;
 	wfb->base = (unsigned long)ppix->devPrivate.ptr;
 	wfb->end = wfb->base + bo->size;
-	if (!bo->tile_flags) {
+	if (!nv50_style_tiled_pixmap(ppix)) {
 		wfb->pitch = 0;
 	} else {
 		wfb->pitch = ppix->devKind;

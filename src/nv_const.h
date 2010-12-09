@@ -1,5 +1,3 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_const.h,v 1.6 2001/12/07 00:09:55 mvojkovi Exp $ */
-
 #ifndef __NV_CONST_H__
 #define __NV_CONST_H__
 
@@ -13,6 +11,9 @@ typedef enum {
     OPTION_NOACCEL,
     OPTION_SHADOW_FB,
     OPTION_VIDEO_KEY,
+    OPTION_WFB,
+    OPTION_GLX_VBLANK,
+    OPTION_ZAPHOD_HEADS,
 } NVOpts;
 
 
@@ -22,6 +23,9 @@ static const OptionInfoRec NVOptions[] = {
     { OPTION_NOACCEL,           "NoAccel",      OPTV_BOOLEAN,   {0}, FALSE },
     { OPTION_SHADOW_FB,         "ShadowFB",     OPTV_BOOLEAN,   {0}, FALSE },
     { OPTION_VIDEO_KEY,		"VideoKey",	OPTV_INTEGER,	{0}, FALSE },
+    { OPTION_WFB,		"WrappedFB",	OPTV_BOOLEAN,	{0}, FALSE },
+    { OPTION_GLX_VBLANK,	"GLXVBlank",	OPTV_BOOLEAN,	{0}, FALSE },
+    { OPTION_ZAPHOD_HEADS,	"ZaphodHeads",	OPTV_STRING,	{0}, FALSE },
     { -1,                       NULL,           OPTV_NONE,      {0}, FALSE }
 };
 

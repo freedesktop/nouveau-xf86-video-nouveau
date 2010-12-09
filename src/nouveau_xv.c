@@ -193,23 +193,6 @@ nv_window_belongs_to_crtc(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 	return mask;
 }
 
-void
-NVWaitVSync(ScrnInfoPtr pScrn, int crtc)
-{
-	NVPtr pNv = NVPTR(pScrn);
-	struct nouveau_channel *chan = pNv->chan;
-	struct nouveau_grobj *blit = pNv->NvImageBlit;
-
-	BEGIN_RING(chan, blit, 0x0000012C, 1);
-	OUT_RING  (chan, 0);
-	BEGIN_RING(chan, blit, 0x00000134, 1);
-	OUT_RING  (chan, crtc);
-	BEGIN_RING(chan, blit, 0x00000100, 1);
-	OUT_RING  (chan, 0);
-	BEGIN_RING(chan, blit, 0x00000130, 1);
-	OUT_RING  (chan, 0);
-}
-
 /**
  * NVSetPortDefaults
  * set attributes of port "pPriv" to compiled-in (except for colorKey) defaults
@@ -1983,7 +1966,8 @@ NV50TexturedImages[] =
 {
 	XVIMAGE_YV12,
 	XVIMAGE_I420,
-	XVIMAGE_YUY2
+	XVIMAGE_YUY2,
+	XVIMAGE_UYVY
 };
 
 static XF86VideoAdaptorPtr

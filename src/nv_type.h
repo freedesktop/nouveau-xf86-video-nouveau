@@ -37,6 +37,7 @@ typedef struct _NVRec {
     EntityInfoPtr       pEnt;
 	struct pci_device *PciInfo;
     Bool                Primary;
+    Bool		Secondary;
 
     /* Various pinned memory regions */
     struct nouveau_bo * scanout;
@@ -54,6 +55,8 @@ typedef struct _NVRec {
     Bool                exa_force_cp;
     Bool		wfb_enabled;
     Bool		tiled_scanout;
+    Bool		glx_vblank;
+    Bool		has_pageflip;
     ScreenBlockHandlerProcPtr BlockHandler;
     CreateScreenResourcesProcPtr CreateScreenResources;
     CloseScreenProcPtr  CloseScreen;
@@ -154,8 +157,9 @@ typedef struct _NVPortPrivRec {
 #define TIMER_MASK      (OFF_TIMER | FREE_TIMER)
 
 /* EXA driver-controlled pixmaps */
-#define NOUVEAU_CREATE_PIXMAP_ZETA 0x10000000
-#define NOUVEAU_CREATE_PIXMAP_TILED 0x20000000
+#define NOUVEAU_CREATE_PIXMAP_ZETA	0x10000000
+#define NOUVEAU_CREATE_PIXMAP_TILED	0x20000000
+#define NOUVEAU_CREATE_PIXMAP_SCANOUT	0x40000000
 
 struct nouveau_pixmap {
 	struct nouveau_bo *bo;

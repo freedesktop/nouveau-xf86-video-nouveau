@@ -70,7 +70,7 @@ nv50_xv_state_emit(PixmapPtr ppix, int id, struct nouveau_bo *src,
 	const unsigned tcb_flags = NOUVEAU_BO_RDWR | NOUVEAU_BO_VRAM;
 	uint32_t mode = 0xd0005000 | (src->tile_mode << 22);
 
-	if (MARK_RING(chan, 256, 16))
+	if (MARK_RING(chan, 256, 18))
 		return FALSE;
 
 	BEGIN_RING(chan, tesla, NV50TCL_RT_ADDRESS_HIGH(0), 5);
@@ -147,11 +147,19 @@ nv50_xv_state_emit(PixmapPtr ppix, int id, struct nouveau_bo *src,
 	OUT_RING  (chan, 0x03000000);
 	OUT_RING  (chan, 0x00000000);
 	} else {
+	if (id == FOURCC_UYVY) {
+	OUT_RING  (chan, NV50TIC_0_0_MAPA_C1 | NV50TIC_0_0_TYPEA_UNORM |
+			 NV50TIC_0_0_MAPB_ZERO | NV50TIC_0_0_TYPEB_UNORM |
+			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
+			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
+			 NV50TIC_0_0_FMT_8_8);
+	} else {
 	OUT_RING  (chan, NV50TIC_0_0_MAPA_C0 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_ZERO | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
 			 NV50TIC_0_0_FMT_8_8);
+	}
 	if (OUT_RELOCl(chan, src, packed_y, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD) ||
 	    OUT_RELOC (chan, src, packed_y, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD |
 		       NOUVEAU_BO_HIGH | NOUVEAU_BO_OR, mode, mode)) {
@@ -163,11 +171,19 @@ nv50_xv_state_emit(PixmapPtr ppix, int id, struct nouveau_bo *src,
 	OUT_RING  (chan, (1 << NV50TIC_0_5_DEPTH_SHIFT) | src_h);
 	OUT_RING  (chan, 0x03000000);
 	OUT_RING  (chan, 0x00000000);
+	if (id == FOURCC_UYVY) {
+	OUT_RING  (chan, NV50TIC_0_0_MAPA_C2 | NV50TIC_0_0_TYPEA_UNORM |
+			 NV50TIC_0_0_MAPB_C0 | NV50TIC_0_0_TYPEB_UNORM |
+			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
+			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
+			 NV50TIC_0_0_FMT_8_8_8_8);
+	} else {
 	OUT_RING  (chan, NV50TIC_0_0_MAPA_C3 | NV50TIC_0_0_TYPEA_UNORM |
 			 NV50TIC_0_0_MAPB_C1 | NV50TIC_0_0_TYPEB_UNORM |
 			 NV50TIC_0_0_MAPG_ZERO | NV50TIC_0_0_TYPEG_UNORM |
 			 NV50TIC_0_0_MAPR_ZERO | NV50TIC_0_0_TYPER_UNORM |
 			 NV50TIC_0_0_FMT_8_8_8_8);
+	}
 	if (OUT_RELOCl(chan, src, packed_y, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD) ||
 	    OUT_RELOC (chan, src, packed_y, NOUVEAU_BO_VRAM | NOUVEAU_BO_RD |
 		       NOUVEAU_BO_HIGH | NOUVEAU_BO_OR, mode, mode)) {
@@ -249,34 +265,6 @@ nv50_xv_state_emit(PixmapPtr ppix, int id, struct nouveau_bo *src,
 	return TRUE;
 }
 
-static void
-NV50EmitWaitForVBlank(PixmapPtr ppix, int x, int y, int w, int h)
-{
-	ScrnInfoPtr pScrn = xf86Screens[ppix->drawable.pScreen->myNum];
-	NVPtr pNv = NVPTR(pScrn);
-	struct nouveau_channel *chan = pNv->chan;
-	struct nouveau_grobj *nvsw = pNv->NvSW;
-	int crtcs;
-
-	if (!nouveau_exa_pixmap_is_onscreen(ppix))
-		return;
-
-	crtcs = nv_window_belongs_to_crtc(pScrn, x, y, w, h);
-	if (!crtcs)
-		return;
-
-	BEGIN_RING(chan, nvsw, 0x0060, 2);
-	OUT_RING  (chan, pNv->vblank_sem->handle);
-	OUT_RING  (chan, 0);
-	BEGIN_RING(chan, nvsw, 0x006c, 1);
-	OUT_RING  (chan, 0x22222222);
-	BEGIN_RING(chan, nvsw, 0x0404, 2);
-	OUT_RING  (chan, 0x11111111);
-	OUT_RING  (chan, ffs(crtcs) - 1);
-	BEGIN_RING(chan, nvsw, 0x0068, 1);
-	OUT_RING  (chan, 0x11111111);
-}
-
 int
 nv50_xv_image_put(ScrnInfoPtr pScrn,
 		  struct nouveau_bo *src, int packed_y, int uv,
@@ -301,9 +289,7 @@ nv50_xv_image_put(ScrnInfoPtr pScrn,
 		return BadAlloc;
 
 	if (pPriv->SyncToVBlank) {
-		NV50EmitWaitForVBlank(ppix, dstBox->x1, dstBox->y1,
-				      dstBox->x2 - dstBox->x1,
-				      dstBox->y2 - dstBox->y1);
+		NV50SyncToVBlank(ppix, dstBox);
 	}
 
 	/* These are fixed point values in the 16.16 format. */
@@ -331,7 +317,7 @@ nv50_xv_image_put(ScrnInfoPtr pScrn,
 
 		if (AVAIL_RING(chan) < 64) {
 			if (!nv50_xv_state_emit(ppix, id, src, packed_y, uv,
-						src_w, src_h))
+						width, height))
 				return BadAlloc;
 		}
 
