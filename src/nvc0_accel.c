@@ -30,10 +30,13 @@ NVAccelInitM2MF_NVC0(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
-
-	pNv->NvMemFormat = (struct nouveau_grobj *)-2;
+	int ret;
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "init NVC0_M2MF (9039)\n");
+
+	ret = nouveau_grobj_alloc(chan, 0x9039, 0x9039, &pNv->NvMemFormat);
+	if (ret)
+		return FALSE;
 
 	BEGIN_RING(chan, NvSubM2MF, 0x0000, 1);
 	OUT_RING  (chan, 0x9039);
@@ -50,10 +53,13 @@ NVAccelInit2D_NVC0(ScrnInfoPtr pScrn)
 {
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
-
-	pNv->Nv2D = (struct nouveau_grobj *)-2;
+	int ret;
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "init NVC0_2D (902d)\n");
+
+	ret = nouveau_grobj_alloc(chan, 0x902d, 0x902d, &pNv->Nv2D);
+	if (ret)
+		return FALSE;
 
 	BEGIN_RING(chan, NvSub2D, 0x0000, 1);
 	OUT_RING  (chan, 0x902d);
@@ -96,7 +102,7 @@ NVAccelInitNVC0TCL(ScrnInfoPtr pScrn)
 	struct nouveau_channel *chan = pNv->chan;
 	struct nouveau_bo *bo = pNv->tesla_scratch;
 	uint32_t tclClass;
-	int i;
+	int ret, i;
 
 	switch (pNv->dev->chipset) {
 	case 0xc0:
@@ -107,25 +113,19 @@ NVAccelInitNVC0TCL(ScrnInfoPtr pScrn)
 	}
 
 	if (!pNv->Nv3D) {
-		int ret;
-
-		ret = nouveau_notifier_alloc(chan, NvVBlankSem, 1,
-					     &pNv->vblank_sem);
+		ret = nouveau_grobj_alloc(chan, tclClass, tclClass, &pNv->Nv3D);
 		if (ret)
 			return FALSE;
 
 		ret = nouveau_bo_new(pNv->dev, NOUVEAU_BO_VRAM,
 				     (128 << 10), 0x20000,
 				     &pNv->tesla_scratch);
-		bo = pNv->tesla_scratch;
-		if (!ret)
-			ret = nouveau_bo_pin(bo, NOUVEAU_BO_VRAM);
 		if (ret) {
-			nouveau_notifier_free(&pNv->vblank_sem);
+			nouveau_grobj_free(&pNv->Nv3D);
 			return FALSE;
 		}
 	}
-	pNv->Nv3D = (struct nouveau_grobj *)-2;
+	bo = pNv->tesla_scratch;
 
 	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "init NVC0TCL (%x)\n", tclClass);
 
