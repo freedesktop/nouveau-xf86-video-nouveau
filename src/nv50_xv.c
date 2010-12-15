@@ -37,6 +37,8 @@
 #include "nv50_texture.h"
 
 extern Atom xvSyncToVBlank, xvSetDefaults;
+extern Atom xvBrightness, xvContrast, xvHue, xvSaturation;
+extern Atom xvITURBT709;
 
 static Bool
 nv50_xv_check_image_put(PixmapPtr ppix)
@@ -349,6 +351,97 @@ nv50_xv_video_stop(ScrnInfoPtr pScrn, pointer data, Bool exit)
 {
 }
 
+/* Reference color space transform data */
+struct REF_TRANSFORM {
+    float   RefLuma;
+    float   RefRCb;
+    float   RefRCr;
+    float   RefGCb;
+    float   RefGCr;
+    float   RefBCb;
+    float   RefBCr;
+} trans[] = {
+	{ 1.1643, 0.0, 1.5960, -0.3918, -0.8129, 2.0172, 0.0 }, /* BT.601 */
+	{ 1.1643, 0.0, 1.7927, -0.2132, -0.5329, 2.1124, 0.0 }  /* BT.709 */
+};
+
+#define RTFSaturation(a)   (1.0 + ((a)*1.0)/1000.0)
+#define RTFBrightness(a)   (((a)*1.0)/2000.0)
+#define RTFContrast(a)   (1.0 + ((a)*1.0)/1000.0)
+#define RTFHue(a)   (((a)*3.1416)/1000.0)
+
+void
+nv50_xv_csc_update(ScrnInfoPtr pScrn, NVPortPrivPtr pPriv)
+{
+	NVPtr pNv = NVPTR(pScrn);
+	struct nouveau_channel *chan = pNv->chan;
+	struct nouveau_grobj *tesla = pNv->Nv3D;
+	const float Loff = -0.0627;
+	const float Coff = -0.502;
+	float yco, off[3], uco[3], vco[3];
+	float uvcosf, uvsinf;
+	float bright, cont;
+	int ref = pPriv->iturbt_709;
+
+	cont = RTFContrast(pPriv->contrast);
+	bright = RTFBrightness(pPriv->brightness);
+	uvcosf = RTFSaturation(pPriv->saturation) * cos(RTFHue(pPriv->hue));
+	uvsinf = RTFSaturation(pPriv->saturation) * sin(RTFHue(pPriv->hue));
+
+	yco = trans[ref].RefLuma * cont;
+	uco[0] = -trans[ref].RefRCr * uvsinf;
+	uco[1] = trans[ref].RefGCb * uvcosf - trans[ref].RefGCr * uvsinf;
+	uco[2] = trans[ref].RefBCb * uvcosf;
+	vco[0] = trans[ref].RefRCr * uvcosf;
+	vco[1] = trans[ref].RefGCb * uvsinf + trans[ref].RefGCr * uvcosf;
+	vco[2] = trans[ref].RefBCb * uvsinf;
+	off[0] = Loff * yco + Coff * (uco[0] + vco[0]) + bright;
+	off[1] = Loff * yco + Coff * (uco[1] + vco[1]) + bright;
+	off[2] = Loff * yco + Coff * (uco[2] + vco[2]) + bright;
+
+	if (MARK_RING(chan, 64, 2))
+		return;
+
+	BEGIN_RING(chan, tesla, NV50TCL_CB_DEF_ADDRESS_HIGH, 3);
+	if (OUT_RELOCh(chan, pNv->tesla_scratch, PFP_DATA,
+		       NOUVEAU_BO_VRAM | NOUVEAU_BO_WR) ||
+	    OUT_RELOCl(chan, pNv->tesla_scratch, PFP_DATA,
+		       NOUVEAU_BO_VRAM | NOUVEAU_BO_WR)) {
+		MARK_UNDO(chan);
+		return;
+	}
+	OUT_RING  (chan, (CB_PFP << NV50TCL_CB_DEF_SET_BUFFER_SHIFT) | 0x4000);
+	BEGIN_RING(chan, tesla, NV50TCL_CB_ADDR, 1);
+	OUT_RING  (chan, CB_PFP);
+	BEGIN_RING_NI(chan, tesla, NV50TCL_CB_DATA(0), 10);
+	OUT_RINGf (chan, yco);
+	OUT_RINGf (chan, off[0]);
+	OUT_RINGf (chan, off[1]);
+	OUT_RINGf (chan, off[2]);
+	OUT_RINGf (chan, uco[0]);
+	OUT_RINGf (chan, uco[1]);
+	OUT_RINGf (chan, uco[2]);
+	OUT_RINGf (chan, vco[0]);
+	OUT_RINGf (chan, vco[1]);
+	OUT_RINGf (chan, vco[2]);
+}
+
+void
+nv50_xv_set_port_defaults(ScrnInfoPtr pScrn, NVPortPrivPtr pPriv)
+{
+	pPriv->videoStatus	= 0;
+	pPriv->grabbedByV4L	= FALSE;
+	pPriv->blitter		= FALSE;
+	pPriv->texture		= TRUE;
+	pPriv->doubleBuffer	= FALSE;
+	pPriv->SyncToVBlank	= TRUE;
+	pPriv->brightness	= 0;
+	pPriv->contrast		= 0;
+	pPriv->saturation	= 0;
+	pPriv->hue		= 0;
+	pPriv->iturbt_709	= 0;
+}
+
 int
 nv50_xv_port_attribute_set(ScrnInfoPtr pScrn, Atom attribute,
 			   INT32 value, pointer data)
@@ -360,11 +453,37 @@ nv50_xv_port_attribute_set(ScrnInfoPtr pScrn, Atom attribute,
 			return BadValue;
 		pPriv->SyncToVBlank = value;
 	} else
+	if (attribute == xvBrightness) {
+		if (value < -1000 || value > 1000)
+			return BadValue;
+		pPriv->brightness = value;
+	} else
+	if (attribute == xvContrast) {
+		if (value < -1000 || value > 1000)
+			return BadValue;
+		pPriv->contrast = value;
+	} else
+	if (attribute == xvSaturation) {
+		if (value < -1000 || value > 1000)
+			return BadValue;
+		pPriv->saturation = value;
+	} else
+	if (attribute == xvHue) {
+		if (value < -1000 || value > 1000)
+			return BadValue;
+		pPriv->hue = value;
+	} else
+	if (attribute == xvITURBT709) {
+		if (value < 0 || value > 1)
+			return BadValue;
+		pPriv->iturbt_709 = value;
+	} else
 	if (attribute == xvSetDefaults) {
-		pPriv->SyncToVBlank = true;
+		nv50_xv_set_port_defaults(pScrn, pPriv);
 	} else
 		return BadMatch;
 
+	nv50_xv_csc_update(pScrn, pPriv);
 	return Success;
 }
 
@@ -376,6 +495,21 @@ nv50_xv_port_attribute_get(ScrnInfoPtr pScrn, Atom attribute,
 
 	if (attribute == xvSyncToVBlank)
 		*value = (pPriv->SyncToVBlank) ? 1 : 0;
+	else
+	if (attribute == xvBrightness)
+		*value = pPriv->brightness;
+	else
+	if (attribute == xvContrast)
+		*value = pPriv->contrast;
+	else
+	if (attribute == xvSaturation)
+		*value = pPriv->saturation;
+	else
+	if (attribute == xvHue)
+		*value = pPriv->hue;
+	else
+	if (attribute == xvITURBT709)
+		*value = pPriv->iturbt_709;
 	else
 		return BadMatch;
 

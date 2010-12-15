@@ -1212,7 +1212,6 @@ NVScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 		xf86ShowUnusedOptions(pScrn->scrnIndex, pScrn->options);
 
 	drmmode_screen_init(pScreen);
-
 	return TRUE;
 }
 

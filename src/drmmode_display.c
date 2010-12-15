@@ -187,22 +187,18 @@ void
 drmmode_fbcon_copy(ScreenPtr pScreen)
 {
 	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
 	NVPtr pNv = NVPTR(pScrn);
+#if XORG_VERSION_CURRENT >= 10999001
 	ExaDriverPtr exa = pNv->EXADriverPtr;
+	xf86CrtcConfigPtr xf86_config = XF86_CRTC_CONFIG_PTR(pScrn);
 	struct nouveau_bo *bo = NULL;
 	PixmapPtr pspix, pdpix;
 	drmModeFBPtr fb;
 	unsigned w = pScrn->virtualX, h = pScrn->virtualY;
 	int i, ret, fbcon_id = 0;
 
-	if (pNv->NoAccel) {
-		if (nouveau_bo_map(pNv->scanout, NOUVEAU_BO_WR))
-			return;
-		memset(pNv->scanout->map, 0x00, pNv->scanout->size);
-		nouveau_bo_unmap(pNv->scanout);
-		return;
-	}
+	if (pNv->NoAccel)
+		goto fallback;
 
 	for (i = 0; i < xf86_config->num_crtc; i++) {
 		drmmode_crtc_private_ptr drmmode_crtc =
@@ -213,24 +209,19 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 	}
 
 	if (!fbcon_id)
-		return;
+		goto fallback;
 
 	fb = drmModeGetFB(nouveau_device(pNv->dev)->fd, fbcon_id);
 	if (!fb) {
 		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
 			   "Failed to retrieve fbcon fb: id %d\n", fbcon_id);
-		return;
+		goto fallback;
 	}
 
-	if (fb->depth != pScrn->depth) {
+	if (fb->depth != pScrn->depth || fb->width != w || fb->height != h) {
 		drmFree(fb);
-		return;
+		goto fallback;
 	}
-
-	if (w > fb->width)
-		w = fb->width;
-	if (h > fb->height)
-		h = fb->height;
 
 	ret = nouveau_bo_wrap(pNv->dev, fb->handle, &bo);
 	if (ret) {
@@ -238,7 +229,7 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 			   "Failed to retrieve fbcon buffer: handle=0x%08x\n",
 			   fb->handle);
 		drmFree(fb);
-		return;
+		goto fallback;
 	}
 
 	pspix = drmmode_pixmap_wrap(pScreen, fb->width, fb->height,
@@ -248,7 +239,7 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 	if (!pspix) {
 		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
 			   "Failed to create pixmap for fbcon contents\n");
-		return;
+		goto fallback;
 	}
 
 	pdpix = drmmode_pixmap_wrap(pScreen, pScrn->virtualX,
@@ -260,7 +251,7 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 		xf86DrvMsg(pScrn->scrnIndex, X_WARNING,
 			   "Failed to init scanout pixmap for fbcon mirror\n");
 		pScreen->DestroyPixmap(pspix);
-		return;
+		goto fallback;
 	}
 
 	exa->PrepareCopy(pspix, pdpix, 0, 0, GXcopy, ~0);
@@ -276,6 +267,15 @@ drmmode_fbcon_copy(ScreenPtr pScreen)
 
 	pScreen->DestroyPixmap(pdpix);
 	pScreen->DestroyPixmap(pspix);
+	pScreen->canDoBGNoneRoot = TRUE;
+	return;
+
+fallback:
+#endif
+	if (nouveau_bo_map(pNv->scanout, NOUVEAU_BO_WR))
+		return;
+	memset(pNv->scanout->map, 0x00, pNv->scanout->size);
+	nouveau_bo_unmap(pNv->scanout);
 }
 
 static Bool

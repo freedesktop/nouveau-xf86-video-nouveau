@@ -137,6 +137,17 @@ XF86AttributeRec NVTexturedAttributes[NUM_TEXTURED_ATTRIBUTES] =
 	{XvSettable | XvGettable, 0, 1, "XV_SYNC_TO_VBLANK"}
 };
 
+#define NUM_TEXTURED_ATTRIBUTES_NV50 7
+XF86AttributeRec NVTexturedAttributesNV50[NUM_TEXTURED_ATTRIBUTES_NV50] =
+{
+	{ XvSettable             , 0, 0, "XV_SET_DEFAULTS" },
+	{ XvSettable | XvGettable, 0, 1, "XV_SYNC_TO_VBLANK" },
+	{ XvSettable | XvGettable, -1000, 1000, "XV_BRIGHTNESS" },
+	{ XvSettable | XvGettable, -1000, 1000, "XV_CONTRAST" },
+	{ XvSettable | XvGettable, -1000, 1000, "XV_SATURATION" },
+	{ XvSettable | XvGettable, -1000, 1000, "XV_HUE" },
+	{ XvSettable | XvGettable, 0, 1, "XV_ITURBT_709" }
+};
 
 #define NUM_IMAGES_YUV 4
 #define NUM_IMAGES_ALL 5
@@ -1999,8 +2010,8 @@ NV50SetupTexturedVideo (ScreenPtr pScreen)
 	for(i = 0; i < NUM_TEXTURE_PORTS; i++)
 		adapt->pPortPrivates[i].ptr = (pointer)(pPriv);
 
-	adapt->pAttributes		= NVTexturedAttributes;
-	adapt->nAttributes		= NUM_TEXTURED_ATTRIBUTES;
+	adapt->pAttributes		= NVTexturedAttributesNV50;
+	adapt->nAttributes		= NUM_TEXTURED_ATTRIBUTES_NV50;
 	adapt->pImages			= NV50TexturedImages;
 	adapt->nImages			= sizeof(NV50TexturedImages) /
 					  sizeof(NV50TexturedImages[0]);
@@ -2015,14 +2026,16 @@ NV50SetupTexturedVideo (ScreenPtr pScreen)
 	adapt->PutImage			= NVPutImage;
 	adapt->QueryImageAttributes	= NVQueryImageAttributes;
 
-	pPriv->videoStatus		= 0;
-	pPriv->grabbedByV4L		= FALSE;
-	pPriv->blitter			= FALSE;
-	pPriv->texture			= TRUE;
-	pPriv->doubleBuffer		= FALSE;
-	pPriv->SyncToVBlank		= TRUE;
-
 	pNv->textureAdaptor[0]		= adapt;
+
+	nv50_xv_set_port_defaults(pScrn, pPriv);
+	nv50_xv_csc_update(pScrn, pPriv);
+
+	xvBrightness = MAKE_ATOM("XV_BRIGHTNESS");
+	xvContrast   = MAKE_ATOM("XV_CONTRAST");
+	xvSaturation = MAKE_ATOM("XV_SATURATION");
+	xvHue        = MAKE_ATOM("XV_HUE");
+	xvITURBT709  = MAKE_ATOM("XV_ITURBT_709");
 	return adapt;
 }
 

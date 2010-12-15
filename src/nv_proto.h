@@ -183,6 +183,8 @@ int nv50_xv_image_put(ScrnInfoPtr, struct nouveau_bo *, int, int, int, int,
 void nv50_xv_video_stop(ScrnInfoPtr, pointer, Bool);
 int nv50_xv_port_attribute_set(ScrnInfoPtr, Atom, INT32, pointer);
 int nv50_xv_port_attribute_get(ScrnInfoPtr, Atom, INT32 *, pointer);
+void nv50_xv_set_port_defaults(ScrnInfoPtr, NVPortPrivPtr);
+void nv50_xv_csc_update(ScrnInfoPtr, NVPortPrivPtr);
 
 /* To support EXA 2.0, 2.1 has this in the header */
 #ifndef exaMoveInPixmap
