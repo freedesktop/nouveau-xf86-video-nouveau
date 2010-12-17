@@ -617,11 +617,11 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 		return FALSE;
 	}
 	BEGIN_RING(chan, NvSubM2MF, NVC0_M2MF_LINE_LENGTH_IN, 2);
-	OUT_RING  (chan, 25 * 8 + 20 * 4);
+	OUT_RING  (chan, 19 * 8 + 20 * 4);
 	OUT_RING  (chan, 1);
 	BEGIN_RING(chan, NvSubM2MF, NVC0_M2MF_EXEC, 1);
 	OUT_RING  (chan, 0x100111);
-	BEGIN_RING_NI(chan, NvSubM2MF, NVC0_M2MF_DATA, 25 * 2 + 20);
+	BEGIN_RING_NI(chan, NvSubM2MF, NVC0_M2MF_DATA, 19 * 2 + 20);
 	OUT_RING  (chan, 0x00021462);
 	OUT_RING  (chan, 0x00000000);
 	OUT_RING  (chan, 0x00000000);
@@ -642,7 +642,6 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	OUT_RING  (chan, 0x00000000);
 	OUT_RING  (chan, 0x0000000f);
 	OUT_RING  (chan, 0x00000000);
-
 	OUT_RING  (chan, 0xfff09c00);
 	OUT_RING  (chan, 0xc07e007c);
 	OUT_RING  (chan, 0x10209c00);
@@ -667,30 +666,18 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	OUT_RING  (chan, 0xc07e0094);
 	OUT_RING  (chan, 0xfc001e86);
 	OUT_RING  (chan, 0x80130001);
-	OUT_RING  (chan, 0x40009c40);
-	OUT_RING  (chan, 0x58004000);
-	OUT_RING  (chan, 0x0830dc20);
-	OUT_RING  (chan, 0x50000000);
-	OUT_RING  (chan, 0x50009c40);
-	OUT_RING  (chan, 0x58004000);
-	OUT_RING  (chan, 0x08411c20);
-	OUT_RING  (chan, 0x50000000);
-	OUT_RING  (chan, 0x60009c40);
-	OUT_RING  (chan, 0x58004000);
-	OUT_RING  (chan, 0x08515c20);
-	OUT_RING  (chan, 0x50000000);
-	OUT_RING  (chan, 0x70109c40);
-	OUT_RING  (chan, 0x58004000);
-	OUT_RING  (chan, 0x08301c20);
-	OUT_RING  (chan, 0x50000000);
+	OUT_RING  (chan, 0x4000dc40);
+	OUT_RING  (chan, 0x30064000);
+	OUT_RING  (chan, 0x50011c40);
+	OUT_RING  (chan, 0x30084000);
+	OUT_RING  (chan, 0x60015c40);
+	OUT_RING  (chan, 0x300a4000);
+	OUT_RING  (chan, 0x70101c40);
+	OUT_RING  (chan, 0x30064000);
 	OUT_RING  (chan, 0x90109c40);
-	OUT_RING  (chan, 0x58004000);
-	OUT_RING  (chan, 0x08509c20);
-	OUT_RING  (chan, 0x50000000);
+	OUT_RING  (chan, 0x300a4000);
 	OUT_RING  (chan, 0x80105c40);
-	OUT_RING  (chan, 0x58004000);
-	OUT_RING  (chan, 0x04405c20);
-	OUT_RING  (chan, 0x50000000);
+	OUT_RING  (chan, 0x30084000);
 	OUT_RING  (chan, 0x00001de7);
 	OUT_RING  (chan, 0x80000000);
 
