@@ -32,8 +32,6 @@ NVAccelInitM2MF_NVC0(ScrnInfoPtr pScrn)
 	struct nouveau_channel *chan = pNv->chan;
 	int ret;
 
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "init NVC0_M2MF (9039)\n");
-
 	ret = nouveau_grobj_alloc(chan, 0x9039, 0x9039, &pNv->NvMemFormat);
 	if (ret)
 		return FALSE;
@@ -47,8 +45,6 @@ NVAccelInit2D_NVC0(ScrnInfoPtr pScrn)
 	NVPtr pNv = NVPTR(pScrn);
 	struct nouveau_channel *chan = pNv->chan;
 	int ret;
-
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "init NVC0_2D (902d)\n");
 
 	ret = nouveau_grobj_alloc(chan, 0x902d, 0x902d, &pNv->Nv2D);
 	if (ret)
@@ -78,7 +74,6 @@ NVAccelInit2D_NVC0(ScrnInfoPtr pScrn)
 	BEGIN_RING(chan, pNv->Nv2D, NV50_2D_PATTERN_FORMAT, 2);
 	OUT_RING  (chan, 2);
 	OUT_RING  (chan, 1);
-
 	FIRE_RING (chan);
 
 	pNv->currentRop = 0xfffffffa;
@@ -120,8 +115,6 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	m2mf = pNv->NvMemFormat;
 	fermi = pNv->Nv3D;
 
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "init NVC0_3D (%x)\n", tclClass);
-
 	if (MARK_RING(chan, 512, 32))
 		return FALSE;
 
@@ -161,7 +154,6 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	OUT_RING  (chan, 0x1111);
 	for (i = 1; i < 8; ++i)
 		OUT_RING(chan, 0);
-
 	FIRE_RING (chan);
 
 	BEGIN_RING(chan, fermi, NVC0_3D_SCREEN_SCISSOR_HORIZ, 2);
@@ -200,7 +192,6 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	OUT_RELOCh(chan, bo, MISC_OFFSET, NOUVEAU_BO_VRAM | NOUVEAU_BO_RDWR);
 	OUT_RELOCl(chan, bo, MISC_OFFSET, NOUVEAU_BO_VRAM | NOUVEAU_BO_RDWR);
 	OUT_RING  (chan, 1);
-
 	FIRE_RING (chan);
 
 	BEGIN_RING(chan, fermi, NVC0_3D_CODE_ADDRESS_HIGH, 2);
@@ -263,8 +254,7 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	OUT_RING  (chan, 0);
 	BEGIN_RING(chan, fermi, 0x2600, 1);
 	OUT_RING  (chan, 1);
-
-	FIRE_RING (chan); usleep(500);
+	FIRE_RING (chan);
 
 	BEGIN_RING(chan, m2mf, NVC0_M2MF_OFFSET_OUT_HIGH, 2);
 	if (OUT_RELOCh(chan, bo, PFP_S, NOUVEAU_BO(VRAM, VRAM, WR)) ||
@@ -597,7 +587,6 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	OUT_RING  (chan, 0x28000000); /* mov b32 $r0 $r3 */
 	OUT_RING  (chan, 0x00001de7);
 	OUT_RING  (chan, 0x80000000); /* exit */
-
 	FIRE_RING (chan);
 
 	BEGIN_RING(chan, m2mf, NVC0_M2MF_OFFSET_OUT_HIGH, 2);
@@ -673,7 +662,6 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 
 	BEGIN_RING(chan, fermi, 0x021c, 1); /* CODE_FLUSH ? */
 	OUT_RING  (chan, 0x1111);
-
 	FIRE_RING (chan);
 
 	BEGIN_RING(chan, fermi, NVC0_3D_SP_SELECT(5), 2);
@@ -733,10 +721,7 @@ NVAccelInit3D_NVC0(ScrnInfoPtr pScrn)
 	BEGIN_RING(chan, fermi, NVC0_3D_SCISSOR_HORIZ(0), 2);
 	OUT_RING  (chan, (8192 << 16) | 0);
 	OUT_RING  (chan, (8192 << 16) | 0);
-
-	FIRE_RING (chan); usleep(50);
-
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVC0_3D has been initialized\n");
+	FIRE_RING (chan);
 
 	return TRUE;
 }

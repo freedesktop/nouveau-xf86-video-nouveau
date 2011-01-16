@@ -625,8 +625,6 @@ NVAccelCommonInit(ScrnInfoPtr pScrn)
 	if (pNv->NoAccel)
 		return TRUE;
 
-	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVAccelCommonInit\n");
-
 	/* General engine objects */
 	if (pNv->Architecture < NV_ARCH_C0)
 		INIT_CONTEXT_OBJECT(DmaNotifier0);
