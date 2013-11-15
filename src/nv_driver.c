@@ -567,6 +567,7 @@ NVCloseScreen(CLOSE_SCREEN_ARGS_DECL)
 		drmmode_screen_fini(pScreen);
 
 	if (!pNv->NoAccel) {
+		nouveau_dri3_fini(pScreen);
 		nouveau_sync_fini(pScreen);
 		nouveau_dri2_fini(pScreen);
 	}
@@ -1275,7 +1276,10 @@ NVScreenInit(SCREEN_INIT_ARGS_DECL)
 	}
 
 	if (!pNv->NoAccel) {
-		nouveau_sync_init(pScreen);
+		if (nouveau_sync_init(pScreen) &&
+		    nouveau_dri3_init(pScreen)) {
+		}
+
 		nouveau_dri2_init(pScreen);
 	}
 

@@ -43,6 +43,15 @@ static inline void nouveau_sync_fini(ScreenPtr pScreen) { }
 Bool nouveau_dri2_init(ScreenPtr pScreen);
 void nouveau_dri2_fini(ScreenPtr pScreen);
 
+/* in nouveau_dri3.c */
+#ifdef DRI3
+Bool nouveau_dri3_init(ScreenPtr pScreen);
+void nouveau_dri3_fini(ScreenPtr pScreen);
+#else
+static inline Bool nouveau_dri3_init(ScreenPtr pScreen) { return FALSE; }
+static inline void nouveau_dri3_fini(ScreenPtr pScreen) { }
+#endif
+
 /* in nouveau_xv.c */
 void NVInitVideo(ScreenPtr);
 void NVTakedownVideo(ScrnInfoPtr);

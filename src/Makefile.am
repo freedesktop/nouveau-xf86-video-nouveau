@@ -30,7 +30,8 @@ nouveau_drv_la_LDFLAGS = -module -avoid-version @LIBDRM_NOUVEAU_LIBS@ \
 nouveau_drv_ladir = @moduledir@/drivers
 
 if DRI3
-NOUVEAU_DRI3_SOURCES = nouveau_sync.c
+NOUVEAU_DRI3_SOURCES = nouveau_sync.c \
+		       nouveau_dri3.c
 endif
 
 nouveau_drv_la_SOURCES = $(NOUVEAU_DRI3_SOURCES) \
